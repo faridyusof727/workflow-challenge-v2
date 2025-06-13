@@ -271,7 +271,7 @@ func (s *Service) HandleExecuteWorkflow(w http.ResponseWriter, r *http.Request) 
 
 	executionJSON := fmt.Sprintf(`{
 		"executedAt": "%s",
-		"status": "completed",
+		"status": "failed",
 		"steps": [
 			{
 				"nodeId": "start",
