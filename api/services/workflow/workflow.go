@@ -118,7 +118,7 @@ func (s *Service) HandleGetWorkflow(w http.ResponseWriter, r *http.Request) {
 							"source": ["true", "false"],
 							"target": true
 						},
-						"conditionExpression": "temperature {{operator}} {{threshold}}",
+						"conditionExpression": "{{temperature}} {{operator}} {{threshold}}",
 						"outputVariables": ["conditionMet"]
 					}
 				}
