@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"workflow-code-test/api/pkg/nodes"
+	"workflow-code-test/api/pkg/nodes/types"
 
 	"github.com/expr-lang/expr"
 )
@@ -25,8 +25,6 @@ type Outputs struct {
 	ConditionMet bool `json:"conditionMet"`
 }
 
-type ConditionExecutor = nodes.NodeExecutor[Outputs]
-
 type Executor struct {
 	opts *Options
 }
@@ -41,11 +39,11 @@ func (e *Executor) ID() string {
 	return "condition"
 }
 
-func NewExecutor(opts *Options) ConditionExecutor {
+func NewExecutor(opts *Options) types.NodeExecutor {
 	return &Executor{opts: opts}
 }
 
-func (e *Executor) Execute(ctx context.Context) (*Outputs, error) {
+func (e *Executor) Execute(ctx context.Context) (any, error) {
 	maps.Insert(e.opts.Variables, maps.All(e.opts.Inputs))
 
 	exprString := ExprReplacePlaceholderByMap(e.opts.Expression, e.opts.Variables, e.opts.Operator)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"workflow-code-test/api/pkg/nodes"
+	"workflow-code-test/api/pkg/nodes/types"
 	"workflow-code-test/api/pkg/openstreetmap"
 	"workflow-code-test/api/pkg/openweather"
 )
@@ -17,12 +17,14 @@ type Outputs struct {
 	Temperature float64 `json:"temperature"`
 }
 
-type WeatherExecutor = nodes.NodeExecutor[Outputs]
+type Options struct {
+	Inputs        *Inputs
+	GeoClient     openstreetmap.Client
+	WeatherClient openweather.Client
+}
 
 type Executor struct {
-	inputs        *Inputs
-	geoClient     openstreetmap.Client
-	weatherClient openweather.Client
+	opts *Options
 }
 
 // Validate implements nodes.NodeExecutor.
@@ -35,21 +37,19 @@ func (e *Executor) ID() string {
 	return "weather-api"
 }
 
-func NewExecutor(inputs *Inputs, geoClient openstreetmap.Client, weatherClient openweather.Client) WeatherExecutor {
+func NewExecutor(opts *Options) types.NodeExecutor {
 	return &Executor{
-		inputs:        inputs,
-		geoClient:     geoClient,
-		weatherClient: weatherClient,
+		opts: opts,
 	}
 }
 
-func (e *Executor) Execute(ctx context.Context) (*Outputs, error) {
-	lat, lng, err := e.geoClient.LatLngByCity(e.inputs.City)
+func (e *Executor) Execute(ctx context.Context) (any, error) {
+	lat, lng, err := e.opts.GeoClient.LatLngByCity(e.opts.Inputs.City)
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get lat lng: %w", e.ID(), err)
 	}
 
-	temperature, err := e.weatherClient.TemperatureInCelsiusByLatLng(lat, lng)
+	temperature, err := e.opts.WeatherClient.TemperatureInCelsiusByLatLng(lat, lng)
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get weather: %w", e.ID(), err)
 	}

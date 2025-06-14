@@ -101,13 +101,13 @@ func TestConditionExecute(t *testing.T) {
 				Expression: "{{temperature}} {{operator}} {{threshold}}",
 			}
 
-			condition := condition.NewExecutor(opts)
+			c := condition.NewExecutor(opts)
 			ctx := context.Background()
-			outputs, err := condition.Execute(ctx)
+			outputs, err := c.Execute(ctx)
 
 			require.NoError(t, err)
 			require.NotNil(t, outputs)
-			require.Equal(t, tt.expected, outputs.ConditionMet)
+			require.Equal(t, tt.expected, outputs.(*condition.Outputs).ConditionMet)
 		})
 	}
 }

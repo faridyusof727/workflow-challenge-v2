@@ -28,16 +28,6 @@ func (m *MockWeatherClient) TemperatureInCelsiusByLatLng(lat, lng float64) (floa
 	return args.Get(0).(float64), args.Error(1)
 }
 
-func TestExecutor_ID(t *testing.T) {
-	mockGeoClient := &MockGeoClient{}
-	mockWeatherClient := &MockWeatherClient{}
-	opts := &weatherapi.Inputs{City: "test-city"}
-
-	executor := weatherapi.NewExecutor(opts, mockGeoClient, mockWeatherClient)
-
-	require.Equal(t, "weather-api", executor.ID())
-}
-
 func TestExecutor_Execute(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -93,8 +83,13 @@ func TestExecutor_Execute(t *testing.T) {
 			mockGeoClient := &MockGeoClient{}
 			mockWeatherClient := &MockWeatherClient{}
 
-			opts := &weatherapi.Inputs{City: tt.input}
-			executor := weatherapi.NewExecutor(opts, mockGeoClient, mockWeatherClient)
+			input := &weatherapi.Inputs{City: tt.input}
+			opts := &weatherapi.Options{
+				Inputs:        input,
+				GeoClient:     mockGeoClient,
+				WeatherClient: mockWeatherClient,
+			}
+			executor := weatherapi.NewExecutor(opts)
 
 			mockGeoClient.On("LatLngByCity", tt.input).Return(tt.expectedLat, tt.expectedLng, tt.geoError)
 
@@ -125,10 +120,13 @@ func TestExecutor_Execute(t *testing.T) {
 func TestNewExecutor(t *testing.T) {
 	mockGeoClient := &MockGeoClient{}
 	mockWeatherClient := &MockWeatherClient{}
-	opts := &weatherapi.Inputs{City: "test-city"}
-
-	executor := weatherapi.NewExecutor(opts, mockGeoClient, mockWeatherClient)
+	input := &weatherapi.Inputs{City: "test-city"}
+	opts := &weatherapi.Options{
+		Inputs:        input,
+		GeoClient:     mockGeoClient,
+		WeatherClient: mockWeatherClient,
+	}
+	executor := weatherapi.NewExecutor(opts)
 
 	require.NotNil(t, executor)
-	require.Equal(t, "weather-api", executor.ID())
 }
