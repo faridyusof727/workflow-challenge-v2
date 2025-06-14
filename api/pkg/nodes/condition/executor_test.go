@@ -107,7 +107,7 @@ func TestConditionExecute(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, outputs)
-			require.Equal(t, tt.expected, outputs["conditionMet"])
+			require.Equal(t, tt.expected, outputs.ConditionMet)
 		})
 	}
 }

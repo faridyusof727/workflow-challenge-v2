@@ -21,35 +21,51 @@ type Options struct {
 	Expression string
 }
 
+type Outputs struct {
+	ConditionMet bool `json:"conditionMet"`
+}
+
+type ConditionExecutor = nodes.NodeExecutor[Outputs]
+
 type Executor struct {
 	opts *Options
 }
 
+// Validate implements nodes.NodeExecutor.
+func (e *Executor) Validate() error {
+	panic("unimplemented")
+}
+
 // ID implements NodeExecutor.
-func (c *Executor) ID() string {
+func (e *Executor) ID() string {
 	return "condition"
 }
 
-func NewExecutor(opts *Options) nodes.NodeExecutor {
+func NewExecutor(opts *Options) ConditionExecutor {
 	return &Executor{opts: opts}
 }
 
-func (c *Executor) Execute(ctx context.Context) (map[string]interface{}, error) {
-	maps.Insert(c.opts.Variables, maps.All(c.opts.Inputs))
+func (e *Executor) Execute(ctx context.Context) (*Outputs, error) {
+	maps.Insert(e.opts.Variables, maps.All(e.opts.Inputs))
 
-	exprString := ExprReplacePlaceholderByMap(c.opts.Expression, c.opts.Variables, c.opts.Operator)
+	exprString := ExprReplacePlaceholderByMap(e.opts.Expression, e.opts.Variables, e.opts.Operator)
 
 	program, err := expr.Compile(exprString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile expression: %w", err)
+		return nil, fmt.Errorf("%s: failed to compile expression: %w", e.ID(), err)
 	}
 
-	output, err := expr.Run(program, c.opts.Variables)
+	output, err := expr.Run(program, e.opts.Variables)
 	if err != nil {
-		return nil, fmt.Errorf("failed to run expression: %w", err)
+		return nil, fmt.Errorf("%s: failed to run expression: %w", e.ID(), err)
 	}
 
-	return map[string]interface{}{
-		"conditionMet": output,
+	o, ok := output.(bool)
+	if !ok {
+		return nil, fmt.Errorf("%s: failed to get output: %w", e.ID(), err)
+	}
+
+	return &Outputs{
+		ConditionMet: o,
 	}, nil
 }

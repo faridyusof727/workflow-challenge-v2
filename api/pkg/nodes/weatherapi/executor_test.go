@@ -31,7 +31,7 @@ func (m *MockWeatherClient) TemperatureInCelsiusByLatLng(lat, lng float64) (floa
 func TestExecutor_ID(t *testing.T) {
 	mockGeoClient := &MockGeoClient{}
 	mockWeatherClient := &MockWeatherClient{}
-	opts := &weatherapi.Options{Input: "test-city"}
+	opts := &weatherapi.Inputs{City: "test-city"}
 
 	executor := weatherapi.NewExecutor(opts, mockGeoClient, mockWeatherClient)
 
@@ -47,7 +47,7 @@ func TestExecutor_Execute(t *testing.T) {
 		expectedTemp     float64
 		geoError         error
 		weatherError     error
-		expectedOutput   map[string]interface{}
+		expectedOutput   *weatherapi.Outputs
 		expectedErrorMsg string
 	}{
 		{
@@ -56,8 +56,8 @@ func TestExecutor_Execute(t *testing.T) {
 			expectedLat:  3.1516964,
 			expectedLng:  101.6942371,
 			expectedTemp: 28.5,
-			expectedOutput: map[string]interface{}{
-				"temperature": 28.5,
+			expectedOutput: &weatherapi.Outputs{
+				Temperature: 28.5,
 			},
 		},
 		{
@@ -66,8 +66,8 @@ func TestExecutor_Execute(t *testing.T) {
 			expectedLat:  -33.8698439,
 			expectedLng:  151.2082848,
 			expectedTemp: 22.3,
-			expectedOutput: map[string]interface{}{
-				"temperature": 22.3,
+			expectedOutput: &weatherapi.Outputs{
+				Temperature: 22.3,
 			},
 		},
 		{
@@ -93,7 +93,7 @@ func TestExecutor_Execute(t *testing.T) {
 			mockGeoClient := &MockGeoClient{}
 			mockWeatherClient := &MockWeatherClient{}
 
-			opts := &weatherapi.Options{Input: tt.input}
+			opts := &weatherapi.Inputs{City: tt.input}
 			executor := weatherapi.NewExecutor(opts, mockGeoClient, mockWeatherClient)
 
 			mockGeoClient.On("LatLngByCity", tt.input).Return(tt.expectedLat, tt.expectedLng, tt.geoError)
@@ -125,7 +125,7 @@ func TestExecutor_Execute(t *testing.T) {
 func TestNewExecutor(t *testing.T) {
 	mockGeoClient := &MockGeoClient{}
 	mockWeatherClient := &MockWeatherClient{}
-	opts := &weatherapi.Options{Input: "test-city"}
+	opts := &weatherapi.Inputs{City: "test-city"}
 
 	executor := weatherapi.NewExecutor(opts, mockGeoClient, mockWeatherClient)
 
