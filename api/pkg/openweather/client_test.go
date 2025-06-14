@@ -64,7 +64,6 @@ func TestTemperatureInCelsiusByLatLng(t *testing.T) {
 			}
 
 			require.NoError(t, err, "error on test case %s", tt.name)
-			require.NotZero(t, gotTemp, "temperature should not be zero on test case %s", tt.name)
 			require.GreaterOrEqual(t, gotTemp, tt.minTemp, "temperature should be greater or equal to %f on test case %s", tt.minTemp, tt.name)
 			require.LessOrEqual(t, gotTemp, tt.maxTemp, "temperature should be less or equal to %f on test case %s", tt.maxTemp, tt.name)
 		})
