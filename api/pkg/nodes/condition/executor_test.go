@@ -101,7 +101,7 @@ func TestConditionExecute(t *testing.T) {
 				Expression: "{{temperature}} {{operator}} {{threshold}}",
 			}
 
-			condition := condition.NewConditionExecutor(opts)
+			condition := condition.NewExecutor(opts)
 			ctx := context.Background()
 			outputs, err := condition.Execute(ctx)
 

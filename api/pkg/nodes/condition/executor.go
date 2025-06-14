@@ -21,20 +21,20 @@ type Options struct {
 	Expression string
 }
 
-type Condition struct {
+type Executor struct {
 	opts *Options
 }
 
 // ID implements NodeExecutor.
-func (c *Condition) ID() string {
+func (c *Executor) ID() string {
 	return "condition"
 }
 
-func NewConditionExecutor(opts *Options) nodes.NodeExecutor {
-	return &Condition{opts: opts}
+func NewExecutor(opts *Options) nodes.NodeExecutor {
+	return &Executor{opts: opts}
 }
 
-func (c *Condition) Execute(ctx context.Context) (map[string]interface{}, error) {
+func (c *Executor) Execute(ctx context.Context) (map[string]interface{}, error) {
 	maps.Insert(c.opts.Variables, maps.All(c.opts.Inputs))
 
 	exprString := ExprReplacePlaceholderByMap(c.opts.Expression, c.opts.Variables, c.opts.Operator)
