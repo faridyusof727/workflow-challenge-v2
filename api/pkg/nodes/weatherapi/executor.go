@@ -9,7 +9,7 @@ import (
 )
 
 type Inputs struct {
-	City string
+	City string `json:"city"`
 }
 
 type Outputs struct {
