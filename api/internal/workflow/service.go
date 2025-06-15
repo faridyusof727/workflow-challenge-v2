@@ -5,14 +5,22 @@ import (
 	"time"
 )
 
-type Service struct {
-	// TODO: Add repository dependency
+type ServiceImpl struct {
+	repo Repository
 }
 
-func (s *Service) Execute(ctx context.Context, workflowID string) (*ExecutionResult, error) {
-	// TODO: Fetch workflow definition from repository
-	// TODO: Execute workflow nodes
-	// TODO: Save execution result
+// Workflow implements Service.
+func (s *ServiceImpl) Workflow(ctx context.Context, workflowID string) (*Workflow, error) {
+	workflow, err := s.repo.WorkflowWithNodesAndEdges(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	return workflow, nil
+}
+
+func (s *ServiceImpl) Execute(ctx context.Context, workflowID string) (*ExecutionResult, error) {
+	s.repo.WorkflowWithNodesAndEdges(ctx, workflowID)
 
 	return &ExecutionResult{
 		Status:     ExecutionStatusCompleted,
@@ -21,6 +29,6 @@ func (s *Service) Execute(ctx context.Context, workflowID string) (*ExecutionRes
 	}, nil
 }
 
-func NewExecutor() Executor {
-	return &Service{}
+func NewService(repo Repository) Service {
+	return &ServiceImpl{repo: repo}
 }
