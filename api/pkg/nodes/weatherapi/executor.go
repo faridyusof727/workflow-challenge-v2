@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"workflow-code-test/api/pkg/nodes/types"
 	"workflow-code-test/api/pkg/openstreetmap"
 	"workflow-code-test/api/pkg/openweather"
 )
@@ -18,18 +17,33 @@ type Outputs struct {
 }
 
 type Options struct {
-	Inputs        *Inputs
 	GeoClient     openstreetmap.Client
 	WeatherClient openweather.Client
 }
 
 type Executor struct {
-	opts *Options
+	Opts *Options
+
+	args   map[string]any
+	inputs Inputs
+}
+
+func (e *Executor) SetArgs(args map[string]any) {
+	e.args = args
 }
 
 // Validate implements nodes.NodeExecutor.
-func (e *Executor) Validate() error {
-	panic("unimplemented")
+func (e *Executor) ValidateAndParse() error {
+	city, ok := e.args["city"].(string)
+	if !ok {
+		return fmt.Errorf("%s: validation failed to get city where it should string", e.ID())
+	}
+
+	e.inputs = Inputs{
+		City: city,
+	}
+
+	return nil
 }
 
 // ID implements NodeExecutor.
@@ -37,19 +51,13 @@ func (e *Executor) ID() string {
 	return "weather-api"
 }
 
-func NewExecutor(opts *Options) types.NodeExecutor {
-	return &Executor{
-		opts: opts,
-	}
-}
-
 func (e *Executor) Execute(ctx context.Context) (any, error) {
-	lat, lng, err := e.opts.GeoClient.LatLngByCity(e.opts.Inputs.City)
+	lat, lng, err := e.Opts.GeoClient.LatLngByCity(e.inputs.City)
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get lat lng: %w", e.ID(), err)
 	}
 
-	temperature, err := e.opts.WeatherClient.TemperatureInCelsiusByLatLng(lat, lng)
+	temperature, err := e.Opts.WeatherClient.TemperatureInCelsiusByLatLng(lat, lng)
 	if err != nil {
 		return nil, fmt.Errorf("%s: failed to get weather: %w", e.ID(), err)
 	}

@@ -2,21 +2,48 @@ package condition
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
 
-// ExprReplacePlaceholderByMap replaces placeholders in an expression string with values from a map.
-// It iterates through the map, replacing placeholders of the format {{key}} with their corresponding values.
-// Additionally, it replaces the {{operator}} placeholder with the string representation of the given operator.
-// Returns the modified expression string with all placeholders replaced.
-func ExprReplacePlaceholderByMap(exprString string, maps map[string]interface{}, operator Operator) string {
-	for key, value := range maps {
-		placeholder := "{{" + key + "}}"
-		exprString = ExprReplacePlaceholder(exprString, placeholder, value)
-	}
+// ExprReplacePlaceholderByMap replaces placeholders in an expression string with values from a struct.
+// It iterates through the fields of the input struct, using JSON tags as placeholders.
+// For each field with a JSON tag, it replaces the corresponding placeholder in the expression.
+// Special handling is provided for the "operator" field to convert it to an expression.
+// Returns the modified expression string with all placeholders replaced by their corresponding values.
+func ExprReplacePlaceholderByMap(inputs Inputs) string {
+	exprString := inputs.Expression
 
-	exprString = ExprReplacePlaceholder(exprString, "{{operator}}", operator.ToExpr())
+	t := reflect.TypeOf(inputs)
+	v := reflect.ValueOf(inputs)
+
+	for i := range t.NumField() {
+
+		field := t.Field(i)
+		jsonTag := field.Tag.Get("json")
+
+		if jsonTag == "" || jsonTag == "expression" {
+			continue // skip fields without a json tag
+		}
+
+		placeholder := "{{" + jsonTag + "}}"
+
+		// Get the field value as an interface{}
+		fieldValue := v.Field(i).Interface()
+
+		if jsonTag == "operator" {
+			// Type check before type assertion
+			if op, ok := fieldValue.(Operator); ok {
+				exprString = ExprReplacePlaceholder(exprString, placeholder, op.ToExpr())
+			} else {
+				continue
+			}
+		} else {
+			exprString = ExprReplacePlaceholder(exprString, placeholder, fieldValue)
+		}
+
+	}
 
 	return exprString
 }

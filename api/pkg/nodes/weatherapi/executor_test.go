@@ -83,13 +83,20 @@ func TestExecutor_Execute(t *testing.T) {
 			mockGeoClient := &MockGeoClient{}
 			mockWeatherClient := &MockWeatherClient{}
 
-			input := &weatherapi.Inputs{City: tt.input}
 			opts := &weatherapi.Options{
-				Inputs:        input,
 				GeoClient:     mockGeoClient,
 				WeatherClient: mockWeatherClient,
 			}
-			executor := weatherapi.NewExecutor(opts)
+			executor := weatherapi.Executor{
+				Opts: opts,
+			}
+
+			executor.SetArgs(map[string]any{
+				"city": tt.input,
+			})
+
+			err := executor.ValidateAndParse()
+			require.NoError(t, err)
 
 			mockGeoClient.On("LatLngByCity", tt.input).Return(tt.expectedLat, tt.expectedLng, tt.geoError)
 
@@ -115,18 +122,4 @@ func TestExecutor_Execute(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestNewExecutor(t *testing.T) {
-	mockGeoClient := &MockGeoClient{}
-	mockWeatherClient := &MockWeatherClient{}
-	input := &weatherapi.Inputs{City: "test-city"}
-	opts := &weatherapi.Options{
-		Inputs:        input,
-		GeoClient:     mockGeoClient,
-		WeatherClient: mockWeatherClient,
-	}
-	executor := weatherapi.NewExecutor(opts)
-
-	require.NotNil(t, executor)
 }
