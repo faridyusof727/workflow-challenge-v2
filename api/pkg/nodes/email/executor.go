@@ -66,7 +66,7 @@ func (e *Executor) ValidateAndParse() error {
 
 // ID implements NodeExecutor.
 func (e *Executor) ID() string {
-	return "weather-api"
+	return "email"
 }
 
 func (e *Executor) Execute(ctx context.Context) (any, error) {

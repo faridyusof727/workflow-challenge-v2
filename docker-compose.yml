@@ -12,6 +12,21 @@ services:
     networks:
       - app-network
 
+  migrate:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.migrator
+    volumes:
+      - ./api:/app
+    environment:
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=postgres://workflow:workflow123@postgres:5432/workflow_engine?sslmode=disable
+      - GOOSE_MIGRATION_DIR=pkg/postgres/migrations
+    networks:
+      - app-network
+    depends_on:
+      - postgres
+
   api:
     build:
       context: ./api
@@ -24,7 +39,6 @@ services:
       - DATABASE_URL=postgres://workflow:workflow123@postgres:5432/workflow_engine?sslmode=disable
     volumes:
       - ./api:/app
-      - /app/vendor
       - /app/tmp
     depends_on:
       - postgres
@@ -43,7 +57,7 @@ services:
     environment:
       - NODE_ENV=development
       - REACT_APP_API_URL=http://localhost:8086
-      - WATCHPACK_POLLING=true  # Enable polling for better file watching in Docker
+      - WATCHPACK_POLLING=true # Enable polling for better file watching in Docker
     depends_on:
       - api
     restart: unless-stopped

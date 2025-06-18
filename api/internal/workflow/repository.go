@@ -2,98 +2,148 @@ package workflow
 
 import (
 	"context"
+	"fmt"
 	"workflow-code-test/api/internal/edge"
 	"workflow-code-test/api/internal/node"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type RepositoryImpl struct {
+	db *pgx.Conn
 }
 
 // WorkflowWithNodesAndEdges implements Repository.
 func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflowID string) (*Workflow, error) {
-	// TODO: Placeholder implementation
-	return &Workflow{
-		ID: "550e8400-e29b-41d4-a716-446655440000",
-		Nodes: []node.Node{
-			{
-				ID:         "start",
-				WorkflowID: "550e8400-e29b-41d4-a716-446655440000",
-				Kind:       "start",
-				Position: node.Position{
-					X: -160,
-					Y: 300,
-				},
-				Data: node.Data{
-					Label:       "Start",
-					Description: "Begin weather check workflow",
-					Metadata: map[string]any{
-						"hasHandles": map[string]bool{
-							"source": true,
-							"target": false,
-						},
-					},
-				},
-			},
-			{
-				ID:         "form",
-				WorkflowID: "550e8400-e29b-41d4-a716-446655440000",
-				Kind:       "form",
-				Position: node.Position{
-					X: 152,
-					Y: 304,
-				},
-				Data: node.Data{
-					Label:       "User Input",
-					Description: "Process collected data - name, email, location",
-					Metadata: map[string]any{
-						"hasHandles": map[string]bool{
-							"source": true,
-							"target": false,
-						},
-						"inputFields":     []string{"name", "email", "city"},
-						"outputVariables": []string{"name", "email", "city"},
-					},
-				},
-			},
-			{
-				ID:         "weather-api",
-				WorkflowID: "550e8400-e29b-41d4-a716-446655440000",
-				Kind:       "integration",
-				Position: node.Position{
-					X: 152,
-					Y: 304,
-				},
-				Data: node.Data{
-					Label:       "Weather API",
-					Description: "Fetch weather data for the provided city",
-					Metadata: map[string]any{
-						"hasHandles": map[string]bool{
-							"source": true,
-							"target": false,
-						},
-						"inputFields":     []string{"city"},
-						"outputVariables": []string{"temperature"},
-					},
-				},
-			},
-		},
-		Edges: []edge.Edge{
-			{
-				ID:       "e1",
-				Source:   "start",
-				Target:   "form",
-				Kind:     "smoothstep",
-				Animated: true,
-				Label:    "Start",
-				Style: map[string]any{
-					"stroke":      "#10b981",
-					"strokeWidth": 3,
-				},
-			},
-		},
-	}, nil
+	args := pgx.NamedArgs{
+		"workflowID": workflowID,
+	}
+
+	queryNodes := `select
+			w.id,
+			w.name,
+			w.created_at,
+			w.updated_at,
+			wn.node_id,
+			wn.kind,
+			wn.position_x,
+			wn.position_y,
+			wn.data_label,
+			wn.data_description,
+			wn.data_metadata,
+			wn.created_at ,
+			wn.updated_at 
+
+		from
+			workflows w
+		join workflow_nodes wn on
+			wn.workflow_id = w.id
+		and w.id = @workflowID`
+
+	rows, err := r.db.Query(ctx, queryNodes, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query nodes: %w", err)
+	}
+
+	workflow := Workflow{}
+
+	for rows.Next() {
+		var node node.Node
+
+		err := rows.Scan(
+			&workflow.ID,
+			&workflow.Name,
+			&workflow.CreatedAt,
+			&workflow.UpdatedAt,
+			&node.ID,
+			&node.Kind,
+			&node.Position.X,
+			&node.Position.Y,
+			&node.Data.Label,
+			&node.Data.Description,
+			&node.Data.Metadata,
+			&node.CreatedAt,
+			&node.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan workflow: %w", err)
+		}
+
+		workflow.Nodes = append(workflow.Nodes, node)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("queryNodes: failed to iterate over rows: %w", err)
+	}
+
+	// Close the rows after iterating over them for the next query
+	rows.Close()
+
+	queryEdges := `select
+			we.node_source,
+			we.node_target,
+			we.kind,
+			we.is_animated,
+			we.is_source_handle,
+			we."style" ,
+			we."label",
+			we.label_style,
+			we.created_at,
+			we.updated_at
+		from
+			workflows w
+		join workflow_edges we on
+			we.workflow_id = w.id
+		and w.id = @workflowID`
+
+	rows, err = r.db.Query(ctx, queryEdges, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query edges: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var edge edge.Edge
+		var isSourceHandle *bool
+
+		err := rows.Scan(
+			&edge.Source,
+			&edge.Target,
+			&edge.Kind,
+			&edge.Animated,
+			&isSourceHandle,
+			&edge.Style,
+			&edge.Label,
+			&edge.LabelStyle,
+			&edge.CreatedAt,
+			&edge.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan workflow: %w", err)
+		}
+
+		// Convert nullable boolean to nullable string pointer
+		if isSourceHandle != nil && *isSourceHandle {
+			edge.SourceHandle = &[]string{"true"}[0]
+		}
+
+		edge.ID = fmt.Sprintf("%s-%s", edge.Source, edge.Target)
+		workflow.Edges = append(workflow.Edges, edge)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("queryEdges: failed to iterate over rows: %w", err)
+	}
+
+	if workflow.ID == "" {
+		return nil, fmt.Errorf("workflow not found")
+	}
+
+	return &workflow, nil
 }
 
-func NewRepository() Repository {
-	return &RepositoryImpl{}
+func NewRepository(db *pgx.Conn) Repository {
+	return &RepositoryImpl{
+		db: db,
+	}
 }

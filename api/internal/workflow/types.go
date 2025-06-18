@@ -24,6 +24,7 @@ const (
 
 type Workflow struct {
 	ID        string      `json:"id"`
+	Name      string      `json:"name"`
 	Nodes     []node.Node `json:"nodes"`
 	Edges     []edge.Edge `json:"edges"`
 	CreatedAt time.Time   `json:"createdAt"`

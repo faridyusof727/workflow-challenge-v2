@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"workflow-code-test/api/pkg/nodes/condition"
+	"workflow-code-test/api/pkg/nodes/email"
+	"workflow-code-test/api/pkg/nodes/form"
 	"workflow-code-test/api/pkg/nodes/types"
 	"workflow-code-test/api/pkg/nodes/weatherapi"
 )
@@ -10,6 +12,8 @@ import (
 var nodeFactories = []types.NodeExecutor{
 	&condition.Executor{},
 	&weatherapi.Executor{},
+	&form.Executor{},
+	&email.Executor{},
 }
 
 func LoadNode(id string) types.NodeExecutor {

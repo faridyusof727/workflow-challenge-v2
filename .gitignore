@@ -3,3 +3,4 @@ node_modules
 
 # Go vendor directory
 vendor/
+api/bin/api
