@@ -25,7 +25,7 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string) (*Executio
 	return &ExecutionResult{
 		Status:     ExecutionStatusCompleted,
 		ExecutedAt: time.Now(),
-		Steps:      []any{}, // TODO: set actual steps
+		Steps:      []Step{}, // TODO: set actual steps
 	}, nil
 }
 
