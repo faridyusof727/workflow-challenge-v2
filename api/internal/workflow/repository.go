@@ -8,14 +8,22 @@ import (
 	"workflow-code-test/api/internal/node"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type RepositoryImpl struct {
-	db *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 // WorkflowWithNodesAndEdges implements Repository.
 func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflowID string) (*Workflow, error) {
+	// Acquire a connection from the pool
+	conn, err := r.pool.Acquire(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire database connection: %w", err)
+	}
+	defer conn.Release()
+
 	args := pgx.NamedArgs{
 		"workflowID": workflowID,
 	}
@@ -41,10 +49,11 @@ func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflow
 			wn.workflow_id = w.id
 		and w.id = @workflowID`
 
-	rows, err := r.db.Query(ctx, queryNodes, args)
+	rows, err := conn.Query(ctx, queryNodes, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query nodes: %w", err)
 	}
+	defer rows.Close()
 
 	workflow := Workflow{}
 
@@ -77,9 +86,6 @@ func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflow
 		return nil, fmt.Errorf("queryNodes: failed to iterate over rows: %w", err)
 	}
 
-	// Close the rows after iterating over them for the next query
-	rows.Close()
-
 	queryEdges := `select
 			we.node_source,
 			we.node_target,
@@ -97,7 +103,7 @@ func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflow
 			we.workflow_id = w.id
 		and w.id = @workflowID`
 
-	rows, err = r.db.Query(ctx, queryEdges, args)
+	rows, err = conn.Query(ctx, queryEdges, args)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query edges: %w", err)
 	}
@@ -144,8 +150,8 @@ func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflow
 	return &workflow, nil
 }
 
-func NewRepository(db *pgx.Conn) Repository {
+func NewRepository(pool *pgxpool.Pool) Repository {
 	return &RepositoryImpl{
-		db: db,
+		pool: pool,
 	}
 }

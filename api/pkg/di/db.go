@@ -21,10 +21,5 @@ func (s *serviceImpl) dbService(ctx context.Context, cfg *config.Config) *postgr
 		os.Exit(1)
 	}
 
-	if err := pool.PoolConn(ctx); err != nil {
-		s.container.Logger.Error("Failed to acquire database connection", "error", err)
-		os.Exit(1)
-	}
-
 	return pool
 }

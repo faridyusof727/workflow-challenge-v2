@@ -44,12 +44,14 @@ func (h *HandlerImpl) Workflow(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 
 	if err := uuid.Validate(id); err != nil {
+		h.log.Error("problem validating workflow id", slog.Any("ID", id), slog.Any("ERROR", err))
 		render.Error(w, r, http.StatusBadRequest, render.ErrInvalidWorkflowID, h.log)
 		return
 	}
 
 	workflow, err := h.svc.Workflow(r.Context(), id)
 	if err != nil {
+		h.log.Error("problem fetching workflow", slog.Any("ID", id), slog.Any("ERROR", err))
 		render.Error(w, r, http.StatusNotFound, err, h.log)
 		return
 	}

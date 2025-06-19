@@ -62,22 +62,16 @@ func NewService(ctx context.Context, opts *Options) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) PoolConn(ctx context.Context) error {
-	conn, err := s.pool.Acquire(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to acquire database connection: %w", err)
-	}
-
-	s.poolConn = conn
-	return nil
-}
-
 func (s *Service) Conn() *pgx.Conn {
 	if s.conn != nil {
 		return s.conn
 	}
 
 	return s.poolConn.Conn()
+}
+
+func (s *Service) Pool() *pgxpool.Pool {
+	return s.pool
 }
 
 func (s *Service) Disconnect(ctx context.Context) {
