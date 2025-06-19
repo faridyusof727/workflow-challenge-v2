@@ -21,6 +21,12 @@ func (h *HandlerImpl) Execute(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	h.log.Debug("Handling workflow execution for id", "id", id)
 
+	_, err := h.svc.Execute(r.Context(), id)
+	if err != nil {
+		render.Error(w, r, http.StatusBadRequest, err, h.log)
+		return
+	}
+
 	// Generate current timestamp
 	currentTime := time.Now().Format(time.RFC3339)
 

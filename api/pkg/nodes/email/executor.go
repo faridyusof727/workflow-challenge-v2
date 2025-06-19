@@ -6,17 +6,6 @@ import (
 	"workflow-code-test/api/pkg/mailer"
 )
 
-type Inputs struct {
-	Name        string  `json:"name"`
-	City        string  `json:"city"`
-	Email       string  `json:"email"`
-	Temperature float64 `json:"temperature"`
-}
-
-type Outputs struct {
-	EmailSent bool `json:"emailSent"`
-}
-
 type Options struct {
 	MailClient mailer.Client
 }
@@ -24,8 +13,7 @@ type Options struct {
 type Executor struct {
 	Opts *Options
 
-	args   map[string]any
-	inputs Inputs
+	args map[string]any
 }
 
 func (e *Executor) SetArgs(args map[string]any) {
@@ -34,31 +22,24 @@ func (e *Executor) SetArgs(args map[string]any) {
 
 // Validate implements nodes.NodeExecutor.
 func (e *Executor) ValidateAndParse() error {
-	name, ok := e.args["name"].(string)
+	_, ok := e.args["name"].(string)
 	if !ok {
 		return fmt.Errorf("%s: validation failed to get name where it should string", e.ID())
 	}
 
-	email, ok := e.args["email"].(string)
+	_, ok = e.args["email"].(string)
 	if !ok {
 		return fmt.Errorf("%s: validation failed to get email where it should string", e.ID())
 	}
 
-	city, ok := e.args["city"].(string)
+	_, ok = e.args["city"].(string)
 	if !ok {
 		return fmt.Errorf("%s: validation failed to get city where it should string", e.ID())
 	}
 
-	temperature, ok := e.args["temperature"].(float64)
+	_, ok = e.args["temperature"].(float64)
 	if !ok {
 		return fmt.Errorf("%s: validation failed to get temperature where it should float64", e.ID())
-	}
-
-	e.inputs = Inputs{
-		Name:        name,
-		Email:       email,
-		City:        city,
-		Temperature: temperature,
 	}
 
 	return nil
@@ -70,14 +51,21 @@ func (e *Executor) ID() string {
 }
 
 func (e *Executor) Execute(ctx context.Context) (any, error) {
-	err := e.Opts.MailClient.Send(e.inputs.Email, "Weather Alert", fmt.Sprintf("Weather alert for %s! Temperature is %.2f°C!", e.inputs.City, e.inputs.Temperature))
+	err := e.Opts.MailClient.Send(
+		e.args["email"].(string),
+		"Weather Alert",
+		fmt.Sprintf("Weather alert for %s! Temperature is %.2f°C!",
+			e.args["city"].(string),
+			e.args["temperature"].(float64),
+		),
+	)
 	if err != nil {
-		return &Outputs{
-			EmailSent: false,
+		return map[string]any{
+			"emailSent": false,
 		}, fmt.Errorf("%s: failed to send email: %w", e.ID(), err)
 	}
 
-	return &Outputs{
-		EmailSent: true,
+	return map[string]any{
+		"emailSent": true,
 	}, nil
 }

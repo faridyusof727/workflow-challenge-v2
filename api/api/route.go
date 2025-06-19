@@ -28,5 +28,5 @@ func (s *Service) LoadRoutes(parentRouter *mux.Router, isProduction bool) {
 	wh := workflow.NewHandler(svc, s.di.Logger)
 
 	router.HandleFunc("/{id}", wh.Workflow).Methods(http.MethodGet)
-	router.HandleFunc("/{id}/execute", wh.Execute).Methods(http.MethodGet) // TODO: change to post
+	router.HandleFunc("/{id}/execute", wh.Execute).Methods(http.MethodPost)
 }

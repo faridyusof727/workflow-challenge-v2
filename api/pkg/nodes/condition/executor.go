@@ -14,10 +14,6 @@ type Inputs struct {
 	Temperature float64  `json:"temperature"`
 }
 
-type Outputs struct {
-	ConditionMet bool `json:"conditionMet"`
-}
-
 type Executor struct {
 	args   map[string]any
 	inputs Inputs
@@ -84,7 +80,7 @@ func (e *Executor) Execute(ctx context.Context) (any, error) {
 		return nil, fmt.Errorf("%s: failed to get output: %w", e.ID(), err)
 	}
 
-	return &Outputs{
-		ConditionMet: o,
+	return map[string]any{
+		"conditionMet": o,
 	}, nil
 }
