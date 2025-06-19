@@ -15,16 +15,17 @@ func TestExecute(t *testing.T) {
 		"email": "johndoe@example.com",
 		"city":  "New York",
 	})
-	err := executor.ValidateAndParse()
+	executor.SetOutputFields([]string{"name", "email", "city"})
+	err := executor.ValidateAndParse([]string{"name", "email", "city"})
 	require.NoError(t, err)
 
 	outputs, err := executor.Execute(context.Background())
 	require.NoError(t, err)
 
-	expectedOutputs := &form.Outputs{
-		Name:  "John Doe",
-		Email: "johndoe@example.com",
-		City:  "New York",
+	expectedOutputs := map[string]any{
+		"name":  "John Doe",
+		"email": "johndoe@example.com",
+		"city":  "New York",
 	}
 	require.Equal(t, expectedOutputs, outputs)
 }

@@ -37,7 +37,7 @@ func TestExecutor_Execute(t *testing.T) {
 		expectedTemp     float64
 		geoError         error
 		weatherError     error
-		expectedOutput   *weatherapi.Outputs
+		expectedOutput   map[string]any
 		expectedErrorMsg string
 	}{
 		{
@@ -46,8 +46,8 @@ func TestExecutor_Execute(t *testing.T) {
 			expectedLat:  3.1516964,
 			expectedLng:  101.6942371,
 			expectedTemp: 28.5,
-			expectedOutput: &weatherapi.Outputs{
-				Temperature: 28.5,
+			expectedOutput: map[string]any{
+				"temperature": "28.50",
 			},
 		},
 		{
@@ -56,8 +56,8 @@ func TestExecutor_Execute(t *testing.T) {
 			expectedLat:  -33.8698439,
 			expectedLng:  151.2082848,
 			expectedTemp: 22.3,
-			expectedOutput: &weatherapi.Outputs{
-				Temperature: 22.3,
+			expectedOutput: map[string]any{
+				"temperature": "22.30",
 			},
 		},
 		{
@@ -94,8 +94,9 @@ func TestExecutor_Execute(t *testing.T) {
 			executor.SetArgs(map[string]any{
 				"city": tt.input,
 			})
+			executor.SetOutputFields([]string{"temperature"})
 
-			err := executor.ValidateAndParse()
+			err := executor.ValidateAndParse([]string{"city"})
 			require.NoError(t, err)
 
 			mockGeoClient.On("LatLngByCity", tt.input).Return(tt.expectedLat, tt.expectedLng, tt.geoError)

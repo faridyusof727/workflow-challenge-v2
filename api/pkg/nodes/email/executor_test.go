@@ -19,16 +19,19 @@ func TestExecute(t *testing.T) {
 		"name":        "John Doe",
 		"email":       "johndoe@example.com",
 		"city":        "New York",
-		"temperature": 25.5,
+		"temperature": "25.5",
+		"emailTemplate": map[string]any{
+			"body":    "Weather alert for {{city}}! Temperature is {{temperature}}°C!",
+			"subject": "Weather Alert",
+		},
 	})
-	err := executor.ValidateAndParse()
+	executor.SetOutputFields([]string{"emailSent"})
+	err := executor.ValidateAndParse([]string{"name", "email", "city", "temperature"})
 	require.NoError(t, err)
 
 	outputs, err := executor.Execute(context.Background())
 	require.NoError(t, err)
 
-	expectedOutputs := &email.Outputs{
-		EmailSent: true,
-	}
-	require.Equal(t, expectedOutputs, outputs)
+	result := outputs.(map[string]any)
+	require.Equal(t, true, result["emailSent"])
 }

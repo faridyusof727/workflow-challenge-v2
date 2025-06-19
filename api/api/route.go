@@ -24,7 +24,7 @@ func (s *Service) LoadRoutes(parentRouter *mux.Router, isProduction bool) {
 	router.Use(JsonMiddleware)
 
 	repo := workflow.NewRepository(s.di.DbService.Conn())
-	svc := workflow.NewService(repo)
+	svc := workflow.NewService(repo, s.di.NodeService)
 	wh := workflow.NewHandler(svc, s.di.Logger)
 
 	router.HandleFunc("/{id}", wh.Workflow).Methods(http.MethodGet)

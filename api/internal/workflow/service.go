@@ -9,10 +9,7 @@ import (
 	"workflow-code-test/api/internal/edge"
 	"workflow-code-test/api/internal/node"
 	"workflow-code-test/api/pkg/helper"
-	"workflow-code-test/api/pkg/mailer"
 	"workflow-code-test/api/pkg/nodes"
-	"workflow-code-test/api/pkg/openstreetmap"
-	"workflow-code-test/api/pkg/openweather"
 )
 
 const (
@@ -21,7 +18,8 @@ const (
 )
 
 type ServiceImpl struct {
-	repo Repository
+	repo        Repository
+	nodeService *nodes.Service
 }
 
 // Workflow implements Service.
@@ -35,16 +33,24 @@ func (s *ServiceImpl) Workflow(ctx context.Context, workflowID string) (*Workflo
 }
 
 func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionInput *ExecutionInput) (*ExecutionResult, error) {
+	executionResult := &ExecutionResult{
+		ExecutedAt: time.Now(),
+		Steps:      make([]Step, 0),
+	}
+
 	wf, err := s.repo.WorkflowWithNodesAndEdges(ctx, workflowID)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: move to upper layer
-	nodeService := nodes.NewService(openstreetmap.NewClient(), openweather.NewClient(), mailer.NewNoopClient())
-
 	input := executionInput.FormData
 
+	executionResult.Steps = append(executionResult.Steps, Step{
+		NodeID: startNode,
+		Type:   startNode,
+		Label:  startNode,
+		Status: StepStatusCompleted,
+	})
 	in := inData{
 		source:             startNode,
 		sourceHandleResult: false,
@@ -57,7 +63,7 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 			maps.Copy(input, node.Data.Metadata)
 		}
 
-		executor := nodeService.LoadNode(node.ID)
+		executor := s.nodeService.LoadNode(node.ID)
 		if executor == nil {
 			fmt.Printf("executor with ID: %s not found", node.ID)
 			continue
@@ -109,13 +115,17 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 		}
 
 		in.source = node.ID
+		executionResult.Steps = append(executionResult.Steps, Step{
+			NodeID:      node.ID,
+			Type:        node.Kind,
+			Label:       node.Data.Label,
+			Status:      StepStatusCompleted,
+			Description: node.Data.Description,
+			Output:      output.(map[string]any),
+		})
 	}
 
-	return &ExecutionResult{
-		Status:     ExecutionStatusCompleted,
-		ExecutedAt: time.Now(),
-		Steps:      []Step{}, // TODO: set actual steps
-	}, nil
+	return executionResult, nil
 }
 
 type outData struct {
@@ -174,6 +184,9 @@ func next(edges []edge.Edge, nodes []node.Node, in *inData, out *outData) bool {
 	return true
 }
 
-func NewService(repo Repository) Service {
-	return &ServiceImpl{repo: repo}
+func NewService(repo Repository, nodeService *nodes.Service) Service {
+	return &ServiceImpl{
+		repo:        repo,
+		nodeService: nodeService,
+	}
 }

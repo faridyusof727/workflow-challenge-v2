@@ -33,6 +33,9 @@ func (s *serviceImpl) Container(ctx context.Context) *Container {
 	dbService := s.dbService(ctx, cfg)
 	s.container.DbService = dbService
 
+	nodeService := s.nodeService()
+	s.container.NodeService = nodeService
+
 	return s.container
 }
 

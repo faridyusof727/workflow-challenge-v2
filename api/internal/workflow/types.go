@@ -6,7 +6,7 @@ import (
 	"workflow-code-test/api/internal/node"
 )
 
-// ExecutionStatus represents the status of an execution or step
+// ExecutionStatus represents the status of an execution
 type ExecutionStatus string
 
 const (
@@ -25,12 +25,20 @@ type ExecutionInput struct {
 	FormData map[string]any `json:"formData"`
 }
 
+// StepStatus represents the status of an step
+type StepStatus string
+
+const (
+	StepStatusCompleted StepStatus = "completed"
+	StepStatusFailed    StepStatus = "failed"
+)
+
 type Step struct {
 	NodeID      string         `json:"nodeId"`
 	Type        string         `json:"type"`
 	Label       string         `json:"label"`
 	Description string         `json:"description"`
-	Status      string         `json:"status"`
+	Status      StepStatus     `json:"status"`
 	Output      map[string]any `json:"output"`
 }
 

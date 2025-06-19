@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"workflow-code-test/api/pkg/config"
+	"workflow-code-test/api/pkg/nodes"
 	"workflow-code-test/api/pkg/postgres"
 )
 
@@ -23,7 +24,9 @@ type Service interface {
 // It provides centralized access to services like logging and database connections.
 type Container struct {
 	// Logger is the application's structured logger.
-	Logger    *slog.Logger
+	Logger *slog.Logger
 	// DbService provides access to the Postgres database.
 	DbService *postgres.Service
+	// NodeService provides workflow node management functionality.
+	NodeService *nodes.Service
 }

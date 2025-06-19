@@ -6,6 +6,10 @@ import (
 	"workflow-code-test/api/pkg/mailer"
 )
 
+const (
+	TemplateKey string = "emailTemplate"
+)
+
 type Options struct {
 	MailClient mailer.Client
 }
@@ -14,6 +18,7 @@ type Executor struct {
 	Opts *Options
 
 	args         map[string]any
+	tmpl         map[string]any
 	outputFields []string
 }
 
@@ -34,6 +39,22 @@ func (e *Executor) ValidateAndParse(argsCheck []string) error {
 		}
 	}
 
+	tmpl, ok := e.args[TemplateKey].(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s: validation failed to get emailTemplate where it should a map", e.ID())
+	}
+
+	_, ok = tmpl["body"].(string)
+	if !ok {
+		return fmt.Errorf("%s: validation failed to get emailTemplate.body where it should a string", e.ID())
+	}
+
+	_, ok = tmpl["subject"].(string)
+	if !ok {
+		return fmt.Errorf("%s: validation failed to get emailTemplate.subject where it should a string", e.ID())
+	}
+
+	e.tmpl = tmpl
 	return nil
 }
 
@@ -45,10 +66,10 @@ func (e *Executor) ID() string {
 func (e *Executor) Execute(ctx context.Context) (any, error) {
 	err := e.Opts.MailClient.Send(
 		e.args["email"].(string),
-		"Weather Alert",
-		fmt.Sprintf("Weather alert for %s! Temperature is %s°C!",
-			e.args["city"].(string),
-			e.args["temperature"].(string),
+		e.tmpl["subject"].(string),
+		TmplReplacePlaceholderByMap(
+			e.tmpl["body"].(string),
+			e.args,
 		),
 	)
 	if err != nil {
