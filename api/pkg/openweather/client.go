@@ -7,7 +7,6 @@ import (
 	"net/http"
 )
 
-// https://api.open-meteo.com/v1/forecast?latitude=-33.8678&longitude=151.2073&current=temperature_2m
 type Impl struct{}
 
 // TemperatureInCelsiusByLatLng implements Client.

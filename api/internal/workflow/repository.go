@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"workflow-code-test/api/internal/edge"
 	"workflow-code-test/api/internal/node"
 
@@ -123,8 +124,9 @@ func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflow
 		}
 
 		// Convert nullable boolean to nullable string pointer
-		if isSourceHandle != nil && *isSourceHandle {
-			edge.SourceHandle = &[]string{"true"}[0]
+		if isSourceHandle != nil {
+			val := strconv.FormatBool(*isSourceHandle)
+			edge.SourceHandle = &val
 		}
 
 		edge.ID = fmt.Sprintf("%s-%s", edge.Source, edge.Target)

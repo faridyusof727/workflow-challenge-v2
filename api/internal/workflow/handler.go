@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"workflow-code-test/api/pkg/render"
@@ -28,7 +29,10 @@ func (h *HandlerImpl) Execute(w http.ResponseWriter, r *http.Request) {
 
 	executionResult, err := h.svc.Execute(r.Context(), id, &input)
 	if err != nil {
-		render.Error(w, r, http.StatusBadRequest, err, h.log)
+		h.log.Error("problem finishing workflow execution", slog.Any("ID", id), slog.Any("ERROR", err))
+	}
+	if executionResult == nil {
+		render.Error(w, r, http.StatusBadRequest, fmt.Errorf("got empty executionResult"), h.log)
 		return
 	}
 

@@ -27,7 +27,6 @@ func Error(w http.ResponseWriter, r *http.Request, status int, err error, log *s
 			"endpoint", r.URL.Path,
 			"method", r.Method,
 			"status", status,
-			"error", err,
 		)
 	}
 

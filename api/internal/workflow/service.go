@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"strconv"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"workflow-code-test/api/internal/node"
 	"workflow-code-test/api/pkg/helper"
 	"workflow-code-test/api/pkg/nodes"
+	"workflow-code-test/api/pkg/nodes/types"
 )
 
 const (
@@ -20,7 +22,20 @@ const (
 type ServiceImpl struct {
 	repo        Repository
 	nodeService *nodes.Service
+	log         *slog.Logger
 }
+
+type outData struct {
+	nextNode node.Node
+}
+
+type inData struct {
+	source             string
+	sourceHandleResult bool
+}
+
+// Alias for better readability in refactored code
+type executionState = inData
 
 // Workflow implements Service.
 func (s *ServiceImpl) Workflow(ctx context.Context, workflowID string) (*Workflow, error) {
@@ -33,109 +48,178 @@ func (s *ServiceImpl) Workflow(ctx context.Context, workflowID string) (*Workflo
 }
 
 func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionInput *ExecutionInput) (*ExecutionResult, error) {
+	wf, err := s.loadWorkflow(ctx, workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.executeWorkflow(ctx, wf, executionInput)
+}
+
+func (s *ServiceImpl) loadWorkflow(ctx context.Context, workflowID string) (*Workflow, error) {
+	return s.repo.WorkflowWithNodesAndEdges(ctx, workflowID)
+}
+
+func (s *ServiceImpl) executeWorkflow(ctx context.Context, wf *Workflow, executionInput *ExecutionInput) (*ExecutionResult, error) {
 	executionResult := &ExecutionResult{
 		ExecutedAt: time.Now(),
 		Steps:      make([]Step, 0),
 	}
 
-	wf, err := s.repo.WorkflowWithNodesAndEdges(ctx, workflowID)
-	if err != nil {
-		return nil, err
-	}
-
 	input := executionInput.FormData
 
+	// Add start node to execution steps
 	executionResult.Steps = append(executionResult.Steps, Step{
 		NodeID: startNode,
 		Type:   startNode,
 		Label:  startNode,
 		Status: StepStatusCompleted,
 	})
-	in := inData{
+
+	executionState := &executionState{
 		source:             startNode,
 		sourceHandleResult: false,
 	}
-	out := outData{}
-	for next(wf.Edges, wf.Nodes, &in, &out) {
-		fmt.Printf("input: %+v\n", out)
-		node := out.nextNode
-		if node.Data.Metadata != nil {
-			maps.Copy(input, node.Data.Metadata)
-		}
 
-		executor := s.nodeService.LoadNode(node.ID)
-		if executor == nil {
-			fmt.Printf("executor with ID: %s not found", node.ID)
-			continue
-		}
-
-		fmt.Printf("input: %+v\n", input)
-		executor.SetArgs(input)
-		if inputVars, ok := node.Data.Metadata["inputVariables"].([]any); ok {
-			fields := make([]string, len(inputVars))
-			for i, v := range inputVars {
-				fields[i] = fmt.Sprintf("%v", v)
-			}
-
-			err := executor.ValidateAndParse(fields)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			err := executor.ValidateAndParse(nil)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		outputFields := make([]string, 0)
-		if outputVars, ok := node.Data.Metadata["outputVariables"].([]any); ok {
-			for _, v := range outputVars {
-				outputFields = append(outputFields, fmt.Sprintf("%v", v))
-			}
-			executor.SetOutputFields(outputFields)
-		}
-
-		output, err := executor.Execute(ctx)
+	nextNodeData := outData{}
+	for next(wf.Edges, wf.Nodes, executionState, &nextNodeData) {
+		step, err := s.executeNode(ctx, nextNodeData.nextNode, input)
 		if err != nil {
-			return nil, err
+			executionResult.Status = ExecutionStatusFailed
+			return executionResult, err
 		}
 
-		fmt.Printf("output: %+v\n\n\n\n\n\n\n", output)
-		maps.Copy(input, output.(map[string]any))
-
-		for key, val := range output.(map[string]any) {
-			for _, f := range outputFields {
-				if result, ok := val.(bool); ok {
-					if key == f {
-						in.sourceHandleResult = result
-					}
-				}
-			}
+		// Update input with node output
+		if step.Output != nil {
+			maps.Copy(input, step.Output)
 		}
 
-		in.source = node.ID
-		executionResult.Steps = append(executionResult.Steps, Step{
-			NodeID:      node.ID,
-			Type:        node.Kind,
-			Label:       node.Data.Label,
-			Status:      StepStatusCompleted,
-			Description: node.Data.Description,
-			Output:      output.(map[string]any),
-		})
+		// Update execution state for next iteration
+		s.updateExecutionState(step, executionState)
+
+		executionResult.Steps = append(executionResult.Steps, *step)
 	}
 
+	// Add end node to execution steps
+	executionResult.Steps = append(executionResult.Steps, Step{
+		NodeID: endNode,
+		Type:   endNode,
+		Label:  endNode,
+		Status: StepStatusCompleted,
+	})
+	executionResult.Status = ExecutionStatusCompleted
 	return executionResult, nil
 }
 
-type outData struct {
-	nextNode         node.Node
-	needSourceHandle bool
+func (s *ServiceImpl) executeNode(ctx context.Context, node node.Node, input map[string]any) (*Step, error) {
+	s.log.Info("starting node execution",
+		slog.Any("node", node),
+		slog.Any("input", input),
+	)
+
+	// Merge node metadata into input
+	if node.Data.Metadata != nil {
+		maps.Copy(input, node.Data.Metadata)
+	}
+
+	// Get and validate executor
+	executor := s.nodeService.LoadNode(node.ID)
+	if executor == nil {
+		return nil, fmt.Errorf("executor not found with ID: %v", node.ID)
+	}
+
+	// Configure executor with input and validation
+	if err := s.configureExecutor(executor, node, input); err != nil {
+		return nil, fmt.Errorf("failed to configure executor for node %v: %w", node.ID, err)
+	}
+
+	// Execute node
+	output, err := executor.Execute(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute node %v: %w", node.ID, err)
+	}
+
+	// Process output and create step
+	outputMap := s.processNodeOutput(output)
+	step := &Step{
+		NodeID:      node.ID,
+		Type:        node.Kind,
+		Label:       node.Data.Label,
+		Status:      StepStatusCompleted,
+		Description: node.Data.Description,
+		Output:      outputMap,
+	}
+
+	return step, nil
 }
 
-type inData struct {
-	source             string
-	sourceHandleResult bool
+func (s *ServiceImpl) configureExecutor(executor types.NodeExecutor, node node.Node, input map[string]any) error {
+	executor.SetArgs(input)
+
+	// Handle input variables
+	inputFields := s.extractInputFields(node.Data.Metadata)
+	if err := executor.ValidateAndParse(inputFields); err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	// Handle output variables
+	outputFields := s.extractOutputFields(node.Data.Metadata)
+	if len(outputFields) > 0 {
+		executor.SetOutputFields(outputFields)
+	}
+
+	return nil
+}
+
+func (s *ServiceImpl) extractInputFields(metadata map[string]any) []string {
+	if inputVars, ok := metadata["inputVariables"].([]any); ok {
+		fields := make([]string, len(inputVars))
+		for i, v := range inputVars {
+			fields[i] = fmt.Sprintf("%v", v)
+		}
+		return fields
+	}
+	return nil
+}
+
+func (s *ServiceImpl) extractOutputFields(metadata map[string]any) []string {
+	if outputVars, ok := metadata["outputVariables"].([]any); ok {
+		fields := make([]string, 0, len(outputVars))
+		for _, v := range outputVars {
+			fields = append(fields, fmt.Sprintf("%v", v))
+		}
+		return fields
+	}
+	return nil
+}
+
+func (s *ServiceImpl) processNodeOutput(output any) map[string]any {
+	if outputMap, ok := output.(map[string]any); ok {
+		return outputMap
+	}
+	return nil
+}
+
+func (s *ServiceImpl) updateExecutionState(step *Step, state *executionState) {
+	if step.Output != nil {
+		// Look for boolean output fields that affect routing
+		for _, val := range step.Output {
+			if result, ok := val.(bool); ok {
+				// Update state with boolean result for conditional routing
+				state.sourceHandleResult = result
+				break // Take first boolean for now
+			}
+		}
+	}
+	state.source = step.NodeID
+}
+
+func NewService(repo Repository, nodeService *nodes.Service, log *slog.Logger) Service {
+	return &ServiceImpl{
+		repo:        repo,
+		nodeService: nodeService,
+		log:         log,
+	}
 }
 
 func next(edges []edge.Edge, nodes []node.Node, in *inData, out *outData) bool {
@@ -144,10 +228,9 @@ func next(edges []edge.Edge, nodes []node.Node, in *inData, out *outData) bool {
 		handle := false
 		if item.SourceHandle != nil {
 			n, err := strconv.ParseBool(*item.SourceHandle)
-			if err != nil {
-				// LOG
+			if err == nil {
+				handle = n
 			}
-			handle = n
 		}
 
 		return item.Source == in.source && in.sourceHandleResult == handle
@@ -163,30 +246,13 @@ func next(edges []edge.Edge, nodes []node.Node, in *inData, out *outData) bool {
 		return false
 	}
 
-	if out.nextNode.ID == endNode {
+	if nxNode.ID == endNode {
 		return false
 	}
 
-	var needHandle bool
-	if edge.SourceHandle != nil {
-		n, err := strconv.ParseBool(*edge.SourceHandle)
-		if err != nil {
-			// LOG
-		}
-		needHandle = n
-	}
-
 	*out = outData{
-		nextNode:         nxNode,
-		needSourceHandle: needHandle,
+		nextNode: nxNode,
 	}
 
 	return true
-}
-
-func NewService(repo Repository, nodeService *nodes.Service) Service {
-	return &ServiceImpl{
-		repo:        repo,
-		nodeService: nodeService,
-	}
 }
