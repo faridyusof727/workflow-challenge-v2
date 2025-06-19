@@ -19,7 +19,7 @@ func NewService(
 	geoClient openstreetmap.Client,
 	weatherClient openweather.Client,
 	mailClient mailer.Client,
-	) *Service {
+) *Service {
 	return &Service{
 		nodeFactories: []types.NodeExecutor{
 			&condition.Executor{},

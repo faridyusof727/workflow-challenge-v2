@@ -16,7 +16,7 @@ type Options struct {
 type Executor struct {
 	Opts *Options
 
-	args   map[string]any
+	args         map[string]any
 	outputFields []string
 }
 
@@ -65,6 +65,6 @@ func (e *Executor) Execute(ctx context.Context) (any, error) {
 	for _, field := range e.outputFields {
 		result[field] = fmt.Sprintf("%.2f", temperature)
 	}
-	
+
 	return result, nil
 }
