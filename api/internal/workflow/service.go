@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strconv"
 	"time"
 	"workflow-code-test/api/internal/edge"
 	"workflow-code-test/api/internal/node"
@@ -44,9 +45,14 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 
 	input := executionInput.FormData
 
-	var node node.Node
-	executionNode := startNode
-	for next(wf.Edges, wf.Nodes, &executionNode, &node) {
+	in := inData{
+		source:             startNode,
+		sourceHandleResult: false,
+	}
+	out := outData{}
+	for next(wf.Edges, wf.Nodes, &in, &out) {
+		fmt.Printf("input: %+v\n", out)
+		node := out.nextNode
 		if node.Data.Metadata != nil {
 			maps.Copy(input, node.Data.Metadata)
 		}
@@ -76,12 +82,12 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 			}
 		}
 
+		outputFields := make([]string, 0)
 		if outputVars, ok := node.Data.Metadata["outputVariables"].([]any); ok {
-			fields := make([]string, len(outputVars))
-			for i, v := range outputVars {
-				fields[i] = fmt.Sprintf("%v", v)
+			for _, v := range outputVars {
+				outputFields = append(outputFields, fmt.Sprintf("%v", v))
 			}
-			executor.SetOutputFields(fields)
+			executor.SetOutputFields(outputFields)
 		}
 
 		output, err := executor.Execute(ctx)
@@ -92,7 +98,17 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 		fmt.Printf("output: %+v\n\n\n\n\n\n\n", output)
 		maps.Copy(input, output.(map[string]any))
 
-		executionNode = node.ID
+		for key, val := range output.(map[string]any) {
+			for _, f := range outputFields {
+				if result, ok := val.(bool); ok {
+					if key == f {
+						in.sourceHandleResult = result
+					}
+				}
+			}
+		}
+
+		in.source = node.ID
 	}
 
 	return &ExecutionResult{
@@ -102,9 +118,29 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 	}, nil
 }
 
-func next(edges []edge.Edge, nodes []node.Node, source *string, nextNode *node.Node) bool {
+type outData struct {
+	nextNode         node.Node
+	needSourceHandle bool
+}
+
+type inData struct {
+	source             string
+	sourceHandleResult bool
+}
+
+func next(edges []edge.Edge, nodes []node.Node, in *inData, out *outData) bool {
 	edge, found := helper.Find(edges, func(item edge.Edge) bool {
-		return item.Source == *source
+		// check here
+		handle := false
+		if item.SourceHandle != nil {
+			n, err := strconv.ParseBool(*item.SourceHandle)
+			if err != nil {
+				// LOG
+			}
+			handle = n
+		}
+
+		return item.Source == in.source && in.sourceHandleResult == handle
 	})
 	if !found {
 		return false
@@ -117,11 +153,23 @@ func next(edges []edge.Edge, nodes []node.Node, source *string, nextNode *node.N
 		return false
 	}
 
-	if nextNode.ID == endNode {
+	if out.nextNode.ID == endNode {
 		return false
 	}
 
-	*nextNode = nxNode
+	var needHandle bool
+	if edge.SourceHandle != nil {
+		n, err := strconv.ParseBool(*edge.SourceHandle)
+		if err != nil {
+			// LOG
+		}
+		needHandle = n
+	}
+
+	*out = outData{
+		nextNode:         nxNode,
+		needSourceHandle: needHandle,
+	}
 
 	return true
 }
