@@ -14,6 +14,11 @@ import (
 	"workflow-code-test/api/pkg/openweather"
 )
 
+const (
+	startNode = "start"
+	endNode   = "end"
+)
+
 type ServiceImpl struct {
 	repo Repository
 }
@@ -40,12 +45,8 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 	input := executionInput.FormData
 
 	var node node.Node
-	executionNode := "start"
+	executionNode := startNode
 	for next(wf.Edges, wf.Nodes, &executionNode, &node) {
-		if node.ID == "start" || node.ID == "end" {
-			continue
-		}
-
 		if node.Data.Metadata != nil {
 			maps.Copy(input, node.Data.Metadata)
 		}
@@ -101,7 +102,7 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionI
 	}, nil
 }
 
-func next(edges []edge.Edge, nodes []node.Node, source *string, nextNode *node.Node, sourceHandle *bool) bool {
+func next(edges []edge.Edge, nodes []node.Node, source *string, nextNode *node.Node) bool {
 	edge, found := helper.Find(edges, func(item edge.Edge) bool {
 		return item.Source == *source
 	})
@@ -116,7 +117,7 @@ func next(edges []edge.Edge, nodes []node.Node, source *string, nextNode *node.N
 		return false
 	}
 
-	if nextNode.ID == "end" {
+	if nextNode.ID == endNode {
 		return false
 	}
 
