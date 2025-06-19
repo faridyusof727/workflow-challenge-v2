@@ -117,7 +117,7 @@ func (h *HandlerImpl) Workflow(w http.ResponseWriter, r *http.Request) {
 
 	workflow, err := h.svc.Workflow(r.Context(), id)
 	if err != nil {
-		render.Error(w, r, http.StatusNotFound, err, h.log)
+		render.Error(w, r, http.StatusNotFound, render.ErrNotFound, h.log)
 		return
 	}
 

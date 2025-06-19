@@ -18,10 +18,11 @@ var apiCmd = &cobra.Command{
 		if container == nil {
 			log.Fatal("Failed to create container")
 		}
-
 		defer di.Shutdown(cmd.Context())
 
-		api.NewServer(container).Start()
+		cfg := di.Config()
+
+		api.NewServer(container, cfg).Start()
 	},
 }
 

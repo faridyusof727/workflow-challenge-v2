@@ -3,12 +3,18 @@ package di
 import (
 	"context"
 	"os"
+	"workflow-code-test/api/pkg/config"
 	"workflow-code-test/api/pkg/postgres"
 )
 
-func (s *serviceImpl) dbService(ctx context.Context) *postgres.Service {
+func (s *serviceImpl) dbService(ctx context.Context, cfg *config.Config) *postgres.Service {
+	if cfg == nil {
+		s.container.Logger.Error("Failed to get config")
+		os.Exit(1)
+	}
+
 	pool, err := postgres.NewService(ctx, &postgres.Options{
-		ConnectionURI: os.Getenv("DATABASE_URL"),
+		ConnectionURI: cfg.Database.URL,
 	})
 	if err != nil {
 		s.container.Logger.Error("Failed to create postgres service", "error", err)

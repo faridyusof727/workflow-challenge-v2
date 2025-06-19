@@ -7,19 +7,21 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"workflow-code-test/api/pkg/config"
 	"workflow-code-test/api/pkg/di"
 
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
 type Server struct {
-	di *di.Container
+	di  *di.Container
+	cfg *config.Config
 }
 
-func NewServer(di *di.Container) *Server {
+func NewServer(di *di.Container, cfg *config.Config) *Server {
 	return &Server{
-		di: di,
+		di:  di,
+		cfg: cfg,
 	}
 }
 
@@ -27,12 +29,7 @@ func (s *Server) Start() {
 	container := s.di
 	mainRouter := mux.NewRouter()
 	mainRouter.Use(RecoverMiddleware(container.Logger))
-	mainRouter.Use(handlers.CORS(
-		handlers.AllowedOrigins([]string{"http://localhost:3003"}), // Frontend URL
-		handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
-		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
-		handlers.AllowCredentials(),
-	))
+	mainRouter.Use(CorsMiddleware(s.cfg))
 
 	apiRouter := mainRouter.PathPrefix("/api/v1").Subrouter()
 
