@@ -21,6 +21,10 @@ type ExecutionResult struct {
 	Steps      []Step          `json:"steps"`
 }
 
+type ExecutionInput struct {
+	FormData map[string]any `json:"formData"`
+}
+
 type Step struct {
 	NodeID      string         `json:"nodeId"`
 	Type        string         `json:"type"`

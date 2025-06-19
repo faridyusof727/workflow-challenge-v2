@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,7 +22,13 @@ func (h *HandlerImpl) Execute(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	h.log.Debug("Handling workflow execution for id", "id", id)
 
-	_, err := h.svc.Execute(r.Context(), id)
+	var input ExecutionInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		render.Error(w, r, http.StatusBadRequest, err, h.log)
+		return
+	}
+
+	_, err := h.svc.Execute(r.Context(), id, &input)
 	if err != nil {
 		render.Error(w, r, http.StatusBadRequest, err, h.log)
 		return
@@ -123,7 +130,7 @@ func (h *HandlerImpl) Workflow(w http.ResponseWriter, r *http.Request) {
 
 	workflow, err := h.svc.Workflow(r.Context(), id)
 	if err != nil {
-		render.Error(w, r, http.StatusNotFound, render.ErrNotFound, h.log)
+		render.Error(w, r, http.StatusNotFound, err, h.log)
 		return
 	}
 

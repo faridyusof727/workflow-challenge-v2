@@ -3,10 +3,13 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
+	"workflow-code-test/api/internal/edge"
+	"workflow-code-test/api/internal/node"
+	"workflow-code-test/api/pkg/helper"
 	"workflow-code-test/api/pkg/mailer"
 	"workflow-code-test/api/pkg/nodes"
-	"workflow-code-test/api/pkg/nodes/condition"
 	"workflow-code-test/api/pkg/openstreetmap"
 	"workflow-code-test/api/pkg/openweather"
 )
@@ -25,43 +28,59 @@ func (s *ServiceImpl) Workflow(ctx context.Context, workflowID string) (*Workflo
 	return workflow, nil
 }
 
-func (s *ServiceImpl) Execute(ctx context.Context, workflowID string) (*ExecutionResult, error) {
+func (s *ServiceImpl) Execute(ctx context.Context, workflowID string, executionInput *ExecutionInput) (*ExecutionResult, error) {
 	wf, err := s.repo.WorkflowWithNodesAndEdges(ctx, workflowID)
 	if err != nil {
 		return nil, err
 	}
 
-	// result := &ExecutionResult{}
+	// TODO: move to upper layer
 	nodeService := nodes.NewService(openstreetmap.NewClient(), openweather.NewClient(), mailer.NewNoopClient())
 
-	input := map[string]any{
-		"name":  "John Doe",
-		"email": "example@example.com",
-		"city":  "London",
-	}
+	input := executionInput.FormData
 
-	for _, node := range wf.Nodes {
+	var node node.Node
+	executionNode := "start"
+	for next(wf.Edges, wf.Nodes, &executionNode, &node) {
 		if node.ID == "start" || node.ID == "end" {
 			continue
 		}
-		if node.ID == "condition" {
-			input["expression"] = node.Data.Metadata["conditionExpression"]
-			input["threshold"] = float64(30)
-			input["operator"] = condition.EqualToOperator
+
+		if node.Data.Metadata != nil {
+			maps.Copy(input, node.Data.Metadata)
 		}
 
-		fmt.Printf("running node %+v\n", node.ID)
-		fmt.Printf("setter %+v\n", input)
 		executor := nodeService.LoadNode(node.ID)
 		if executor == nil {
 			fmt.Printf("executor with ID: %s not found", node.ID)
 			continue
 		}
-		
+
+		fmt.Printf("input: %+v\n", input)
 		executor.SetArgs(input)
-		err := executor.ValidateAndParse()
-		if err != nil {
-			return nil, err
+		if inputVars, ok := node.Data.Metadata["inputVariables"].([]any); ok {
+			fields := make([]string, len(inputVars))
+			for i, v := range inputVars {
+				fields[i] = fmt.Sprintf("%v", v)
+			}
+
+			err := executor.ValidateAndParse(fields)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			err := executor.ValidateAndParse(nil)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if outputVars, ok := node.Data.Metadata["outputVariables"].([]any); ok {
+			fields := make([]string, len(outputVars))
+			for i, v := range outputVars {
+				fields[i] = fmt.Sprintf("%v", v)
+			}
+			executor.SetOutputFields(fields)
 		}
 
 		output, err := executor.Execute(ctx)
@@ -69,10 +88,10 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string) (*Executio
 			return nil, err
 		}
 
-		fmt.Printf("output: %+v\n", output)
-		for key, o := range output.(map[string]any) {
-			input[key] = o
-		}
+		fmt.Printf("output: %+v\n\n\n\n\n\n\n", output)
+		maps.Copy(input, output.(map[string]any))
+
+		executionNode = node.ID
 	}
 
 	return &ExecutionResult{
@@ -80,6 +99,30 @@ func (s *ServiceImpl) Execute(ctx context.Context, workflowID string) (*Executio
 		ExecutedAt: time.Now(),
 		Steps:      []Step{}, // TODO: set actual steps
 	}, nil
+}
+
+func next(edges []edge.Edge, nodes []node.Node, source *string, nextNode *node.Node, sourceHandle *bool) bool {
+	edge, found := helper.Find(edges, func(item edge.Edge) bool {
+		return item.Source == *source
+	})
+	if !found {
+		return false
+	}
+
+	nxNode, found := helper.Find(nodes, func(item node.Node) bool {
+		return item.ID == edge.Target
+	})
+	if !found {
+		return false
+	}
+
+	if nextNode.ID == "end" {
+		return false
+	}
+
+	*nextNode = nxNode
+
+	return true
 }
 
 func NewService(repo Repository) Service {

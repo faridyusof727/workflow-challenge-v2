@@ -17,17 +17,24 @@ type Executor struct {
 	Opts *Options
 
 	args   map[string]any
+	outputFields []string
 }
 
 func (e *Executor) SetArgs(args map[string]any) {
 	e.args = args
 }
 
+func (e *Executor) SetOutputFields(fields []string) {
+	e.outputFields = fields
+}
+
 // Validate implements nodes.NodeExecutor.
-func (e *Executor) ValidateAndParse() error {
-	_, ok := e.args["city"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get city where it should string", e.ID())
+func (e *Executor) ValidateAndParse(argsCheck []string) error {
+	for _, key := range argsCheck {
+		_, ok := e.args[key].(string)
+		if !ok {
+			return fmt.Errorf("%s: validation key failed, key: %v", e.ID(), key)
+		}
 	}
 
 	return nil
@@ -49,7 +56,15 @@ func (e *Executor) Execute(ctx context.Context) (any, error) {
 		return nil, fmt.Errorf("%s: failed to get weather: %w", e.ID(), err)
 	}
 
-	return map[string]any{
-		"temperature": temperature,
-	}, nil
+	// Hardcoded for now to explicitly there should be one output from the api request
+	if len(e.outputFields) != 1 {
+		return nil, fmt.Errorf("%s: output should only contain one variable, outputs: %+v", e.ID(), e.outputFields)
+	}
+
+	result := map[string]any{}
+	for _, field := range e.outputFields {
+		result[field] = fmt.Sprintf("%.2f", temperature)
+	}
+	
+	return result, nil
 }

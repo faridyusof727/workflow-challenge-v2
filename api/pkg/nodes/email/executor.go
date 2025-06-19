@@ -13,33 +13,25 @@ type Options struct {
 type Executor struct {
 	Opts *Options
 
-	args map[string]any
+	args         map[string]any
+	outputFields []string
 }
 
 func (e *Executor) SetArgs(args map[string]any) {
 	e.args = args
 }
 
+func (e *Executor) SetOutputFields(fields []string) {
+	e.outputFields = fields
+}
+
 // Validate implements nodes.NodeExecutor.
-func (e *Executor) ValidateAndParse() error {
-	_, ok := e.args["name"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get name where it should string", e.ID())
-	}
-
-	_, ok = e.args["email"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get email where it should string", e.ID())
-	}
-
-	_, ok = e.args["city"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get city where it should string", e.ID())
-	}
-
-	_, ok = e.args["temperature"].(float64)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get temperature where it should float64", e.ID())
+func (e *Executor) ValidateAndParse(argsCheck []string) error {
+	for _, key := range argsCheck {
+		_, ok := e.args[key].(string)
+		if !ok {
+			return fmt.Errorf("%s: validation key failed, key: %v", e.ID(), key)
+		}
 	}
 
 	return nil
@@ -54,9 +46,9 @@ func (e *Executor) Execute(ctx context.Context) (any, error) {
 	err := e.Opts.MailClient.Send(
 		e.args["email"].(string),
 		"Weather Alert",
-		fmt.Sprintf("Weather alert for %s! Temperature is %.2f°C!",
+		fmt.Sprintf("Weather alert for %s! Temperature is %s°C!",
 			e.args["city"].(string),
-			e.args["temperature"].(float64),
+			e.args["temperature"].(string),
 		),
 	)
 	if err != nil {
@@ -65,7 +57,15 @@ func (e *Executor) Execute(ctx context.Context) (any, error) {
 		}, fmt.Errorf("%s: failed to send email: %w", e.ID(), err)
 	}
 
-	return map[string]any{
-		"emailSent": true,
-	}, nil
+	// Hardcoded for now to explicitly there should be one output from the mail execution
+	if len(e.outputFields) != 1 {
+		return nil, fmt.Errorf("%s: output should only contain one variable, outputs: %+v", e.ID(), e.outputFields)
+	}
+
+	result := map[string]any{}
+	for _, field := range e.outputFields {
+		result[field] = true
+	}
+
+	return result, nil
 }

@@ -12,9 +12,10 @@ type Service interface {
 	// It takes a context and workflow ID as parameters and returns the complete Workflow or an error.
 	Workflow(ctx context.Context, workflowID string) (*Workflow, error)
 
-	// Execute runs a workflow with the given ID and returns the execution result.
-	// It takes a context and workflow ID as parameters and returns the execution result or an error.
-	Execute(ctx context.Context, workflowID string) (*ExecutionResult, error)
+	// Execute runs a workflow with the given ID using the provided input data.
+	// It takes a context for cancellation, the workflow ID to execute, and input data containing form fields.
+	// Returns the execution result with status and steps, or an error if execution fails.
+	Execute(ctx context.Context, workflowID string, input *ExecutionInput) (*ExecutionResult, error)
 }
 
 // Repository is an interface that provides methods to retrieve workflow data,

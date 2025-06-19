@@ -30,7 +30,7 @@ func (r *RepositoryImpl) WorkflowWithNodesAndEdges(ctx context.Context, workflow
 			wn.position_y,
 			wn.data_label,
 			wn.data_description,
-			wn.data_metadata,
+			wn.data_metadata::jsonb,
 			wn.created_at ,
 			wn.updated_at 
 

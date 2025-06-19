@@ -7,51 +7,44 @@ import (
 	"github.com/expr-lang/expr"
 )
 
-type Inputs struct {
-	Expression  string   `json:"expression"`
-	Threshold   float64  `json:"threshold"`
-	Operator    Operator `json:"operator"`
-	Temperature float64  `json:"temperature"`
-}
+const (
+	ExpressionKey string = "conditionExpression"
+	OperatorKey   string = "operator"
+)
 
 type Executor struct {
-	args   map[string]any
-	inputs Inputs
+	args         map[string]any
+	outputFields []string
 }
 
 func (e *Executor) SetArgs(args map[string]any) {
 	e.args = args
 }
 
-func (e *Executor) ValidateAndParse() error {
-	expression, ok := e.args["expression"].(string)
+func (e *Executor) SetOutputFields(fields []string) {
+	e.outputFields = fields
+}
+
+func (e *Executor) ValidateAndParse(argsCheck []string) error {
+	_, ok := e.args[ExpressionKey].(string)
 	if !ok {
 		return fmt.Errorf("%s: validation failed to get expression where it should string", e.ID())
 	}
 
-	threshold, ok := e.args["threshold"].(float64)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get threshold where it should float64", e.ID())
-	}
-
-	operator, ok := e.args["operator"].(Operator)
+	operator, ok := e.args[OperatorKey].(string)
 	if !ok {
 		return fmt.Errorf("%s: validation failed to get operator where it should &Operator", e.ID())
 	}
-	if err := operator.Validate(); err != nil {
+
+	if err := Operator(operator).Validate(); err != nil {
 		return fmt.Errorf("%s: validation failed to validate operator: %w", e.ID(), err)
 	}
 
-	temperature, ok := e.args["temperature"].(float64)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get temperature where it should float64", e.ID())
-	}
-
-	e.inputs = Inputs{
-		Expression:  expression,
-		Threshold:   threshold,
-		Operator:    operator,
-		Temperature: temperature,
+	for _, key := range argsCheck {
+		_, ok := e.args[key].(string)
+		if !ok {
+			return fmt.Errorf("%s: validation key failed, key: %v", e.ID(), key)
+		}
 	}
 
 	return nil
@@ -63,7 +56,9 @@ func (e *Executor) ID() string {
 }
 
 func (e *Executor) Execute(ctx context.Context) (any, error) {
-	exprString := ExprReplacePlaceholderByMap(e.inputs)
+	rawExprString := e.args[ExpressionKey].(string)
+
+	exprString := ExprReplacePlaceholderByMap(rawExprString, e.args)
 
 	program, err := expr.Compile(exprString)
 	if err != nil {
@@ -80,7 +75,15 @@ func (e *Executor) Execute(ctx context.Context) (any, error) {
 		return nil, fmt.Errorf("%s: failed to get output: %w", e.ID(), err)
 	}
 
-	return map[string]any{
-		"conditionMet": o,
-	}, nil
+	// Hardcoded for now to explicitly there should be one output from the expression
+	if len(e.outputFields) != 1 {
+		return nil, fmt.Errorf("%s: output should only contain one variable, outputs: %+v", e.ID(), e.outputFields)
+	}
+
+	result := map[string]any{}
+	for _, field := range e.outputFields {
+		result[field] = o
+	}
+
+	return result, nil
 }

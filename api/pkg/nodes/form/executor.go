@@ -6,28 +6,25 @@ import (
 )
 
 type Executor struct {
-	args map[string]any
+	args         map[string]any
+	outputFields []string
 }
 
 func (e *Executor) SetArgs(args map[string]any) {
 	e.args = args
 }
 
+func (e *Executor) SetOutputFields(fields []string) {
+	e.outputFields = fields
+}
+
 // Validate implements nodes.NodeExecutor.
-func (e *Executor) ValidateAndParse() error {
-	_, ok := e.args["name"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get name where it should string", e.ID())
-	}
-
-	_, ok = e.args["email"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get email where it should string", e.ID())
-	}
-
-	_, ok = e.args["city"].(string)
-	if !ok {
-		return fmt.Errorf("%s: validation failed to get city where it should string", e.ID())
+func (e *Executor) ValidateAndParse(argsCheck []string) error {
+	for _, key := range argsCheck {
+		_, ok := e.args[key].(string)
+		if !ok {
+			return fmt.Errorf("%s: validation key failed, key: %v", e.ID(), key)
+		}
 	}
 
 	return nil
@@ -39,5 +36,13 @@ func (e *Executor) ID() string {
 }
 
 func (e *Executor) Execute(ctx context.Context) (any, error) {
-	return e.args, nil
+	result := map[string]any{}
+	for _, field := range e.outputFields {
+		if val, ok := e.args[field]; ok {
+			result[field] = val
+		}
+
+	}
+
+	return result, nil
 }
