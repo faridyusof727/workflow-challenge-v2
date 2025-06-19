@@ -11,6 +11,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workflow -d workflow_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   migrate:
     build:
@@ -25,7 +30,8 @@ services:
     networks:
       - app-network
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   api:
     build:
@@ -44,7 +50,8 @@ services:
       - ./api:/app
       - /app/tmp
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - app-network
 
