@@ -7,9 +7,7 @@ import (
 	"maps"
 	"strconv"
 	"time"
-	"workflow-code-test/api/internal/edge"
 	"workflow-code-test/api/internal/node"
-	"workflow-code-test/api/pkg/helper"
 	"workflow-code-test/api/pkg/nodes"
 	"workflow-code-test/api/pkg/nodes/types"
 )
@@ -23,6 +21,13 @@ type ServiceImpl struct {
 	repo        Repository
 	nodeService *nodes.Service
 	log         *slog.Logger
+}
+
+// optimizedWorkflow contains pre-built indexes for lookups
+type optimizedWorkflow struct {
+	*Workflow
+	edgesBySource map[string]map[bool]string // source -> handle -> target
+	nodesById     map[string]node.Node       // nodeId -> node
 }
 
 type outData struct {
@@ -68,6 +73,9 @@ func (s *ServiceImpl) executeWorkflow(ctx context.Context, wf *Workflow, executi
 
 	input := executionInput.FormData
 
+	// Build optimized workflow structure for lookups
+	optimizedWf := s.buildOptimizedWorkflow(wf)
+
 	// Add start node to execution steps
 	executionResult.Steps = append(executionResult.Steps, Step{
 		NodeID: startNode,
@@ -82,7 +90,7 @@ func (s *ServiceImpl) executeWorkflow(ctx context.Context, wf *Workflow, executi
 	}
 
 	nextNodeData := outData{}
-	for next(wf.Edges, wf.Nodes, executionState, &nextNodeData) {
+	for nextOptimized(optimizedWf, executionState, &nextNodeData) {
 		step, err := s.executeNode(ctx, nextNodeData.nextNode, input)
 		if err != nil {
 			executionResult.Status = ExecutionStatusFailed
@@ -214,45 +222,73 @@ func (s *ServiceImpl) updateExecutionState(step *Step, state *executionState) {
 	state.source = step.NodeID
 }
 
+// buildOptimizedWorkflow creates optimized data structures for lookups
+func (s *ServiceImpl) buildOptimizedWorkflow(wf *Workflow) *optimizedWorkflow {
+	optimized := &optimizedWorkflow{
+		Workflow:      wf,
+		edgesBySource: make(map[string]map[bool]string),
+		nodesById:     make(map[string]node.Node),
+	}
+
+	// Build nodes index
+	for _, n := range wf.Nodes {
+		optimized.nodesById[n.ID] = n
+	}
+
+	// Build edges index
+	for _, e := range wf.Edges {
+		if optimized.edgesBySource[e.Source] == nil {
+			optimized.edgesBySource[e.Source] = make(map[bool]string)
+		}
+
+		// Parse handle as boolean
+		handle := false
+		if e.SourceHandle != nil {
+			if parsed, err := strconv.ParseBool(*e.SourceHandle); err == nil {
+				handle = parsed
+			}
+		}
+
+		optimized.edgesBySource[e.Source][handle] = e.Target
+	}
+
+	return optimized
+}
+
+// nextOptimized performs lookup using pre-built indexes
+func nextOptimized(wf *optimizedWorkflow, in *inData, out *outData) bool {
+	sourceEdges, sourceExists := wf.edgesBySource[in.source]
+	if !sourceExists {
+		return false
+	}
+
+	targetNodeID, edgeExists := sourceEdges[in.sourceHandleResult]
+	if !edgeExists {
+		return false
+	}
+
+	// Check if we've reached the end
+	if targetNodeID == endNode {
+		return false
+	}
+
+	// lookup for the actual node
+	nextNode, nodeExists := wf.nodesById[targetNodeID]
+	if !nodeExists {
+		return false
+	}
+
+	*out = outData{
+		nextNode: nextNode,
+	}
+
+	return true
+}
+
 func NewService(repo Repository, nodeService *nodes.Service, log *slog.Logger) Service {
 	return &ServiceImpl{
 		repo:        repo,
 		nodeService: nodeService,
 		log:         log,
 	}
-}
-
-func next(edges []edge.Edge, nodes []node.Node, in *inData, out *outData) bool {
-	edge, found := helper.Find(edges, func(item edge.Edge) bool {
-		// check here
-		handle := false
-		if item.SourceHandle != nil {
-			n, err := strconv.ParseBool(*item.SourceHandle)
-			if err == nil {
-				handle = n
-			}
-		}
-
-		return item.Source == in.source && in.sourceHandleResult == handle
-	})
-	if !found {
-		return false
-	}
-
-	nxNode, found := helper.Find(nodes, func(item node.Node) bool {
-		return item.ID == edge.Target
-	})
-	if !found {
-		return false
-	}
-
-	if nxNode.ID == endNode {
-		return false
-	}
-
-	*out = outData{
-		nextNode: nxNode,
-	}
-
-	return true
 }

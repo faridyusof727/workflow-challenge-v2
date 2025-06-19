@@ -30,7 +30,7 @@ func (e *Executor) SetOutputFields(fields []string) {
 	e.outputFields = fields
 }
 
-// Validate implements nodes.NodeExecutor.
+// ValidateAndParse implements nodes.NodeExecutor.
 func (e *Executor) ValidateAndParse(argsCheck []string) error {
 	for _, key := range argsCheck {
 		_, ok := e.args[key].(string)
