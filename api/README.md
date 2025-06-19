@@ -29,10 +29,13 @@ Ensure PostgreSQL is running and accessible.
 ### 2. Run the API
 
 - With Docker Compose (recommended):
+
   ```bash
   docker-compose up --build api
   ```
+
 - Or run locally:
+
   ```bash
   go run main.go
   ```

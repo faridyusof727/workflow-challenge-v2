@@ -26,6 +26,7 @@ docker-compose up --build
 
 - This launches frontend, backend, and database with hot reloading enabled for code changes.
 - To stop and clean up:
+
   ```bash
   docker-compose down
   ```
@@ -44,22 +45,122 @@ docker-compose up --build
 ## 🏗️ Project Architecture
 
 ```text
-workflow-code-test/
+workflow-challenge-v2/
 ├── api/                    # Go Backend (Port 8086)
 │   ├── main.go
-│   ├── services/
+│   ├── cmd/
+│   │   ├── api.go
+│   │   └── root.go
+│   ├── api/
+│   │   ├── middlewares.go
+│   │   ├── route.go
+│   │   └── server.go
+│   ├── internal/
+│   │   ├── edge/
+│   │   │   └── types.go
+│   │   ├── node/
+│   │   │   └── types.go
+│   │   └── workflow/
+│   │       ├── handler.go
+│   │       ├── port.go
+│   │       ├── repository.go
+│   │       ├── service.go
+│   │       └── types.go
 │   ├── pkg/
+│   │   ├── config/
+│   │   │   ├── config.go
+│   │   │   ├── cors.go
+│   │   │   └── db.go
+│   │   ├── di/
+│   │   │   ├── db.go
+│   │   │   ├── interfaces.go
+│   │   │   ├── logger.go
+│   │   │   ├── nodes.go
+│   │   │   └── service.go
+│   │   ├── helper/
+│   │   │   └── filter.go
+│   │   ├── mailer/
+│   │   │   ├── interfaces.go
+│   │   │   └── noop.go
+│   │   ├── nodes/
+│   │   │   ├── README.md
+│   │   │   ├── condition/
+│   │   │   │   ├── executor.go
+│   │   │   │   ├── executor_test.go
+│   │   │   │   ├── replacer.go
+│   │   │   │   └── types.go
+│   │   │   ├── email/
+│   │   │   │   ├── executor.go
+│   │   │   │   ├── executor_test.go
+│   │   │   │   └── replacer.go
+│   │   │   ├── form/
+│   │   │   │   ├── executor.go
+│   │   │   │   └── executor_test.go
+│   │   │   ├── service.go
+│   │   │   ├── types/
+│   │   │   │   └── executor.go
+│   │   │   └── weatherapi/
+│   │   │       ├── executor.go
+│   │   │       └── executor_test.go
+│   │   ├── openstreetmap/
+│   │   │   ├── client.go
+│   │   │   ├── client_test.go
+│   │   │   ├── interfaces.go
+│   │   │   └── types.go
+│   │   ├── openweather/
+│   │   │   ├── client.go
+│   │   │   ├── client_test.go
+│   │   │   ├── interfaces.go
+│   │   │   └── types.go
+│   │   ├── postgres/
+│   │   │   ├── migrations/
+│   │   │   │   ├── 20250618035144_create_workflow_table.sql
+│   │   │   │   ├── 20250618093549_create_nodes_table.sql
+│   │   │   │   ├── 20250618094125_create_workflow_nodes_table.sql
+│   │   │   │   ├── 20250618100526_create_edges_table.sql
+│   │   │   │   └── 20250618101127_seed_workflows.sql
+│   │   │   └── service.go
+│   │   └── render/
+│   │       ├── errors.go
+│   │       └── response.go
 │   ├── go.mod
-│   └── Dockerfile
+│   ├── go.sum
+│   ├── Dockerfile
+│   ├── Dockerfile.migrator
+│   └── README.md
 ├── web/                    # React Frontend (Port 3003)
 │   ├── src/
+│   │   ├── components/
+│   │   │   ├── ExecutionResults.tsx
+│   │   │   ├── UserInputForm.tsx
+│   │   │   ├── WorkflowDiagram.tsx
+│   │   │   └── WorkflowNode.tsx
+│   │   ├── hooks/
+│   │   │   ├── useExecuteWorkflow.ts
+│   │   │   └── useWorkflow.ts
+│   │   ├── App.tsx
+│   │   ├── constants.ts
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   ├── types.ts
+│   │   └── vite-env.d.ts
 │   ├── public/
+│   │   └── checkbox.ico
 │   ├── package.json
+│   ├── package-lock.json
 │   ├── vite.config.ts
 │   ├── tsconfig.json
+│   ├── tsconfig.app.json
+│   ├── tsconfig.node.json
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── eslint.config.mjs
 │   ├── nginx.conf
-│   └── Dockerfile
+│   ├── Dockerfile
+│   ├── README.md
+│   └── index.html
 ├── docker-compose.yml
+├── DESIGN_RATIONALE.md
 └── README.md
 ```
 
@@ -68,11 +169,13 @@ workflow-code-test/
 ### 🌐 Frontend
 
 - Edit files in `web/src/` and see changes instantly at [http://localhost:3003](http://localhost:3003) (hot reloading via Vite).
+- **IMPORTANT** - Workflow ID is hardcoded. You'll need to replace it to correct ID from the database table `workflow`.`id`.
 
 ### 🖥️ Backend
 
 - Edit files in `api/` and changes are reflected automatically (hot reloading in Docker).
 - If you add new dependencies or make significant changes, rebuild the API container:
+
   ```bash
   docker-compose up --build api
   ```
@@ -81,10 +184,13 @@ workflow-code-test/
 
 - Schema/configuration details: see [API README](api/README.md#database)
 - After schema changes or migrations, restart the database:
+
   ```bash
   docker-compose restart postgres
   ```
+
 - To apply schema changes to the API after updating the database:
+
   ```bash
   docker-compose restart api
   ```
