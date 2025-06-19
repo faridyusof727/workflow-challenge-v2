@@ -47,121 +47,30 @@ docker-compose up --build
 ```text
 workflow-challenge-v2/
 ├── api/                    # Go Backend (Port 8086)
-│   ├── main.go
-│   ├── cmd/
-│   │   ├── api.go
-│   │   └── root.go
-│   ├── api/
-│   │   ├── middlewares.go
-│   │   ├── route.go
-│   │   └── server.go
-│   ├── internal/
-│   │   ├── edge/
-│   │   │   └── types.go
-│   │   ├── node/
-│   │   │   └── types.go
-│   │   └── workflow/
-│   │       ├── handler.go
-│   │       ├── port.go
-│   │       ├── repository.go
-│   │       ├── service.go
-│   │       └── types.go
-│   ├── pkg/
-│   │   ├── config/
-│   │   │   ├── config.go
-│   │   │   ├── cors.go
-│   │   │   └── db.go
-│   │   ├── di/
-│   │   │   ├── db.go
-│   │   │   ├── interfaces.go
-│   │   │   ├── logger.go
-│   │   │   ├── nodes.go
-│   │   │   └── service.go
-│   │   ├── helper/
-│   │   │   └── filter.go
-│   │   ├── mailer/
-│   │   │   ├── interfaces.go
-│   │   │   └── noop.go
-│   │   ├── nodes/
-│   │   │   ├── README.md
-│   │   │   ├── condition/
-│   │   │   │   ├── executor.go
-│   │   │   │   ├── executor_test.go
-│   │   │   │   ├── replacer.go
-│   │   │   │   └── types.go
-│   │   │   ├── email/
-│   │   │   │   ├── executor.go
-│   │   │   │   ├── executor_test.go
-│   │   │   │   └── replacer.go
-│   │   │   ├── form/
-│   │   │   │   ├── executor.go
-│   │   │   │   └── executor_test.go
-│   │   │   ├── service.go
-│   │   │   ├── types/
-│   │   │   │   └── executor.go
-│   │   │   └── weatherapi/
-│   │   │       ├── executor.go
-│   │   │       └── executor_test.go
-│   │   ├── openstreetmap/
-│   │   │   ├── client.go
-│   │   │   ├── client_test.go
-│   │   │   ├── interfaces.go
-│   │   │   └── types.go
-│   │   ├── openweather/
-│   │   │   ├── client.go
-│   │   │   ├── client_test.go
-│   │   │   ├── interfaces.go
-│   │   │   └── types.go
-│   │   ├── postgres/
-│   │   │   ├── migrations/
-│   │   │   │   ├── 20250618035144_create_workflow_table.sql
-│   │   │   │   ├── 20250618093549_create_nodes_table.sql
-│   │   │   │   ├── 20250618094125_create_workflow_nodes_table.sql
-│   │   │   │   ├── 20250618100526_create_edges_table.sql
-│   │   │   │   └── 20250618101127_seed_workflows.sql
-│   │   │   └── service.go
-│   │   └── render/
-│   │       ├── errors.go
-│   │       └── response.go
-│   ├── go.mod
-│   ├── go.sum
-│   ├── Dockerfile
-│   ├── Dockerfile.migrator
-│   └── README.md
+│   ├── main.go             # Entry point for the backend application
+│   ├── internal/           # Internal logic and services
+│   │   └── workflow/       # Workflow related logic
+│   ├── pkg/                # Packages for configuration, DI, helpers, mailer, nodes
+│   │   ├── config/         # Configuration files
+│   │   ├── di/             # Dependency Injection setup
+│   │   └── nodes/          # Implementations for different node types
+│   ├── Dockerfile          # Dockerfile for building the backend image
+│   └── README.md           # API documentation
 ├── web/                    # React Frontend (Port 3003)
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ExecutionResults.tsx
-│   │   │   ├── UserInputForm.tsx
-│   │   │   ├── WorkflowDiagram.tsx
-│   │   │   └── WorkflowNode.tsx
-│   │   ├── hooks/
-│   │   │   ├── useExecuteWorkflow.ts
-│   │   │   └── useWorkflow.ts
-│   │   ├── App.tsx
-│   │   ├── constants.ts
-│   │   ├── index.css
-│   │   ├── main.tsx
-│   │   ├── types.ts
-│   │   └── vite-env.d.ts
-│   ├── public/
-│   │   └── checkbox.ico
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── vite.config.ts
-│   ├── tsconfig.json
-│   ├── tsconfig.app.json
-│   ├── tsconfig.node.json
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
-│   ├── eslint.config.mjs
-│   ├── nginx.conf
-│   ├── Dockerfile
-│   ├── README.md
-│   └── index.html
-├── docker-compose.yml
-├── DESIGN_RATIONALE.md
-└── README.md
+│   ├── src/                # Source code for the frontend
+│   │   ├── components/     # React components
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── App.tsx         # Main application component
+│   │   ├── index.css       # Global styles
+│   │   └── main.tsx        # Entry point for the frontend application
+│   ├── public/             # Public assets
+│   ├── package.json        # NPM dependencies and scripts
+│   ├── vite.config.ts      # Vite configuration
+│   ├── Dockerfile          # Dockerfile for building the frontend image
+│   └── README.md           # Frontend documentation
+├── docker-compose.yml      # Docker Compose file for defining and running multi-container Docker applications
+├── DESIGN_RATIONALE.md     # Design rationale and architectural decisions
+└── README.md               # Project documentation
 ```
 
 ## 🔧 Development Workflow
