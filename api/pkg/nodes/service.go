@@ -12,7 +12,7 @@ import (
 )
 
 type Service struct {
-	nodeFactories []types.NodeExecutor
+	nodeFactories map[string]types.NodeExecutor
 }
 
 func NewService(
@@ -20,30 +20,35 @@ func NewService(
 	weatherClient openweather.Client,
 	mailClient mailer.Client,
 ) *Service {
-	return &Service{
-		nodeFactories: []types.NodeExecutor{
-			&condition.Executor{},
-			&weatherapi.Executor{
-				Opts: &weatherapi.Options{
-					GeoClient:     geoClient,
-					WeatherClient: weatherClient,
-				},
-			},
-			&form.Executor{},
-			&email.Executor{
-				Opts: &email.Options{
-					MailClient: mailClient,
-				},
-			},
+	condition := types.NodeExecutor(&condition.Executor{})
+	weatherapi := types.NodeExecutor(&weatherapi.Executor{
+		Opts: &weatherapi.Options{
+			GeoClient:     geoClient,
+			WeatherClient: weatherClient,
 		},
+	})
+	form := types.NodeExecutor(&form.Executor{})
+	email := types.NodeExecutor(&email.Executor{
+		Opts: &email.Options{
+			MailClient: mailClient,
+		},
+	})
+
+	nodeFactories := map[string]types.NodeExecutor{
+		condition.ID():  condition,
+		weatherapi.ID(): weatherapi,
+		form.ID():       form,
+		email.ID():      email,
+	}
+
+	return &Service{
+		nodeFactories: nodeFactories,
 	}
 }
 
 func (s *Service) LoadNode(id string) types.NodeExecutor {
-	for _, node := range s.nodeFactories {
-		if node.ID() == id {
-			return node
-		}
+	if node, ok := s.nodeFactories[id]; ok {
+		return node
 	}
 
 	return nil
